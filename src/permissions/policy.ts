@@ -1,5 +1,5 @@
 // FungiCode Permission Policy — Sprint 0
-import type { PermissionMode } from "../providers/types.js";
+import type { PermissionMode } from "../config/schema.js";
 import type { RiskLevel } from "../tools/types.js";
 
 export interface PermissionPolicy {

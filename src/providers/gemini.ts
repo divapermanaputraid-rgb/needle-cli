@@ -1,16 +1,23 @@
 // FungiCode Gemini Provider — Sprint 0 placeholder
-import type { Provider, CompletionRequest, CompletionResponse, ModelProfile } from "./types.js";
+import type { Provider, ProviderId, ModelProfile, ChatRequest, ChatResponse } from "./types.js";
 
 export class GeminiProvider implements Provider {
-  name = "gemini";
-  supportedProfiles: ModelProfile[] = ["smart", "planner"];
+  id: ProviderId = "gemini";
+  displayName = "Google Gemini";
+  supports = { 
+    chat: true, 
+    streaming: false, 
+    toolCalling: false, 
+    jsonSchema: false, 
+    vision: false, 
+    longContext: false 
+  };
 
   isAvailable(): boolean {
     return !!process.env.GEMINI_API_KEY;
   }
 
-  // TODO: Sprint 1 — implement Google Generative AI SDK call
-  async complete(_req: CompletionRequest): Promise<CompletionResponse> {
-    throw new Error("GeminiProvider.complete() not yet implemented — Sprint 1");
+  async chat(_req: ChatRequest): Promise<ChatResponse> {
+    throw new Error("GeminiProvider.chat() not yet implemented — Sprint 1");
   }
 }

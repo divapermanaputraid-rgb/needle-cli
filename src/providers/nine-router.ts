@@ -1,17 +1,24 @@
 // FungiCode 9Router Provider — Sprint 0 placeholder
 // 9Router is a multi-model routing API
-import type { Provider, CompletionRequest, CompletionResponse, ModelProfile } from "./types.js";
+import type { Provider, ProviderId, ModelProfile, ChatRequest, ChatResponse } from "./types.js";
 
 export class NineRouterProvider implements Provider {
-  name = "nine-router";
-  supportedProfiles: ModelProfile[] = ["fast", "smart", "coder", "planner", "reviewer"];
+  id: ProviderId = "nine-router";
+  displayName = "9Router";
+  supports = { 
+    chat: true, 
+    streaming: false, 
+    toolCalling: false, 
+    jsonSchema: false, 
+    vision: false, 
+    longContext: false 
+  };
 
   isAvailable(): boolean {
     return !!process.env.NINE_ROUTER_API_KEY;
   }
 
-  // TODO: Sprint 1 — implement actual 9Router API call
-  async complete(_req: CompletionRequest): Promise<CompletionResponse> {
-    throw new Error("NineRouterProvider.complete() not yet implemented — Sprint 1");
+  async chat(_req: ChatRequest): Promise<ChatResponse> {
+    throw new Error("NineRouterProvider.chat() not yet implemented — Sprint 1");
   }
 }
