@@ -23,9 +23,11 @@ const FORBIDDEN_STRINGS = [
   "source leak",
   "leaked source",
   "based on leaked",
-  "API_KEY",
-  "SECRET_KEY",
-  "PRIVATE_KEY",
+];
+
+const FORBIDDEN_REGEX = [
+  /sk-[a-zA-Z0-9]{32,}/, // Typical API key pattern
+  /(["']?)(api_key|secret_key|private_key)\1\s*:\s*["'][^"']+["']/i,
 ];
 
 let failed = false;
@@ -76,6 +78,12 @@ for (const file of distFiles) {
   for (const s of FORBIDDEN_STRINGS) {
     if (content.includes(s)) {
       console.error(`❌ FORBIDDEN STRING "${s}" found in: ${file}`);
+      failed = true;
+    }
+  }
+  for (const r of FORBIDDEN_REGEX) {
+    if (r.test(content)) {
+      console.error(`❌ FORBIDDEN PATTERN match found in: ${file}`);
       failed = true;
     }
   }
