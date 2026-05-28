@@ -1,20 +1,24 @@
-// FungiCode Tool Types — Sprint 0 interfaces
+export type ToolRiskLevel = "low" | "medium" | "high";
+export type RiskLevel = ToolRiskLevel;
 
-export type RiskLevel = "low" | "medium" | "high" | "critical";
+export type Tool<Input = unknown> = ToolDefinition<Input>;
+export type ToolInput = Record<string, unknown>;
 
-export interface ToolInput {
-  [key: string]: unknown;
+export interface ToolContext {
+  cwd: string;
 }
 
 export interface ToolResult {
-  success: boolean;
+  ok: boolean;
   output: string;
-  error?: string;
+  metadata?: Record<string, unknown>;
 }
 
-export interface Tool {
+export interface ToolDefinition<Input = unknown> {
   name: string;
   description: string;
-  riskLevel: RiskLevel;
-  execute(input: ToolInput): Promise<ToolResult>;
+  riskLevel: ToolRiskLevel;
+  isReadOnly: boolean;
+  inputSchemaDescription: string;
+  execute(input: Input, context: ToolContext): Promise<ToolResult>;
 }
