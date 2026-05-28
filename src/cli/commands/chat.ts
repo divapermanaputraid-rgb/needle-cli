@@ -1,15 +1,33 @@
-// FungiCode: fungi chat
 import { Command } from "commander";
-import { printHeader } from "../../ui/terminal.js";
+import { loadFungiConfig } from "../../config/loader.js";
+import { createProviderRouter } from "../../providers/router.js";
+import { ModelProfile } from "../../providers/types.js";
 
-export function chatCommand(): Command {
-  return new Command("chat")
-    .description("Start an interactive AI chat session")
-    .option("-p, --profile <profile>", "model profile", "smart")
-    .action((opts) => {
-      printHeader("Chat Mode");
-      console.log(`Profile: ${opts.profile}`);
-      console.log("Status: placeholder");
-      console.log("Next: provider router + agent loop — Sprint 1");
-    });
-}
+export const chatCommand = new Command("chat")
+  .description("Send a one-off message to the active fast/smart model")
+  .argument("<message>", "The message to send")
+  .option("-p, --profile <profile>", "Model profile to use (fast, smart, coder, planner, reviewer)", "fast")
+  .action(async (message: string, options) => {
+    try {
+      const config = await loadFungiConfig(process.cwd());
+      const router = createProviderRouter(config);
+      
+      const profile = options.profile as ModelProfile;
+      console.log(`Sending message using profile: ${profile}...`);
+      
+      const response = await router.chatWithProfile({
+        profile,
+        messages: [{ role: "user", content: message }],
+      });
+      
+      console.log("\n=== Response ===");
+      console.log(response.content);
+      
+      if (response.usage) {
+        console.log(`\n(Usage: ${response.usage.totalTokens || 0} tokens)`);
+      }
+    } catch (error: any) {
+      console.error(`Error: ${error.message}`);
+      process.exit(1);
+    }
+  });

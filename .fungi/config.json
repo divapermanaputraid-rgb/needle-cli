@@ -1,0 +1,30 @@
+{
+  "defaultProvider": "nine-router",
+  "models": {
+    "fast": "",
+    "smart": "",
+    "coder": "",
+    "planner": "",
+    "reviewer": ""
+  },
+  "permissions": {
+    "mode": "ask"
+  },
+  "providers": {
+    "nine-router": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "NINE_ROUTER_API_KEY"
+    },
+    "openai-compatible": {
+      "baseUrl": "",
+      "apiKeyEnv": "OPENAI_API_KEY"
+    },
+    "gemini": {
+      "apiKeyEnv": "GEMINI_API_KEY"
+    },
+    "deepseek": {
+      "baseUrl": "https://api.deepseek.com",
+      "apiKeyEnv": "DEEPSEEK_API_KEY"
+    }
+  }
+}

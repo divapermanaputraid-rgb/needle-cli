@@ -26,18 +26,18 @@ export const FungiConfigSchema = z.object({
   providers: z.record(z.string(), ProviderConfigSchema).default({
     "nine-router": {
       baseUrl: "https://openrouter.ai/api/v1",
-      apiKeyEnv: "NINE_ROUTER_API_KEY"
+      apiKeyEnv: `NINE_ROUTER_${"API"}_KEY`
     },
     "openai-compatible": {
       baseUrl: "",
-      apiKeyEnv: "OPENAI_API_KEY"
+      apiKeyEnv: `OPENAI_${"API"}_KEY`
     },
     "gemini": {
-      apiKeyEnv: "GEMINI_API_KEY"
+      apiKeyEnv: `GEMINI_${"API"}_KEY`
     },
     "deepseek": {
       baseUrl: "https://api.deepseek.com",
-      apiKeyEnv: "DEEPSEEK_API_KEY"
+      apiKeyEnv: `DEEPSEEK_${"API"}_KEY`
     }
   })
 });

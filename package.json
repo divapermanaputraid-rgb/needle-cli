@@ -15,6 +15,7 @@
     "assets/logo.png"
   ],
   "scripts": {
+    "start": "node dist/index.js",
     "dev": "tsx src/cli/index.ts",
     "build": "tsup src/cli/index.ts --format esm --dts --clean --no-sourcemap",
     "typecheck": "tsc --noEmit",

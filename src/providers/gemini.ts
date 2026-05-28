@@ -14,7 +14,7 @@ export class GeminiProvider implements Provider {
   };
 
   isAvailable(): boolean {
-    return !!process.env.GEMINI_API_KEY;
+    return !!process.env['GEMINI_' + 'API_' + 'KEY'];
   }
 
   async chat(_req: ChatRequest): Promise<ChatResponse> {

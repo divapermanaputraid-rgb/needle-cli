@@ -16,12 +16,12 @@ program
   .description("FungiCode — open-source, multi-provider AI coding CLI")
   .version("0.1.0");
 
-program.addCommand(initCommand());
-program.addCommand(chatCommand());
+program.addCommand(initCommand);
+program.addCommand(chatCommand);
 program.addCommand(planCommand());
 program.addCommand(codeCommand());
 program.addCommand(reviewCommand());
-program.addCommand(configCommand());
-program.addCommand(modelsCommand());
+program.addCommand(configCommand);
+program.addCommand(modelsCommand);
 
 program.parse(process.argv);

@@ -1,50 +1,48 @@
-// FungiCode Provider Types — Sprint 0 interfaces
+export type ProviderId =
+  | "nine-router"
+  | "openai-compatible"
+  | "gemini"
+  | "deepseek";
 
-export type ModelProfile = "fast" | "smart" | "coder" | "planner" | "reviewer";
+export type ModelProfile =
+  | "fast"
+  | "smart"
+  | "coder"
+  | "planner"
+  | "reviewer";
 
-export interface Message {
-  role: "system" | "user" | "assistant";
+export interface ChatMessage {
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
 }
 
-export interface CompletionRequest {
-  messages: Message[];
-  profile: ModelProfile;
-  maxTokens?: number;
-  temperature?: number;
-}
-
-export interface CompletionResponse {
-  content: string;
-  provider: string;
+export interface ChatRequest {
   model: string;
+  messages: ChatMessage[];
+  temperature?: number;
+  maxTokens?: number;
+}
+
+export interface ChatResponse {
+  content: string;
+  model: string;
+  provider: ProviderId;
   usage?: {
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
   };
 }
 
 export interface Provider {
-  name: string;
-  supportedProfiles: ModelProfile[];
-  complete(req: CompletionRequest): Promise<CompletionResponse>;
-  isAvailable(): boolean;
-}
-
-export interface ModelConfig {
-  fast: string;
-  smart: string;
-  coder: string;
-  planner: string;
-  reviewer: string;
-}
-
-export type PermissionMode = "ask" | "auto-low-risk" | "yolo";
-
-export interface FungiConfig {
-  defaultProvider: string;
-  models: ModelConfig;
-  permissions: {
-    mode: PermissionMode;
+  id: ProviderId;
+  displayName: string;
+  supports: {
+    streaming: boolean;
+    toolCalling: boolean;
+    jsonSchema: boolean;
+    vision: boolean;
+    longContext: boolean;
   };
+  chat(request: ChatRequest): Promise<ChatResponse>;
 }

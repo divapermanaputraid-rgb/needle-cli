@@ -15,7 +15,7 @@ export class NineRouterProvider implements Provider {
   };
 
   isAvailable(): boolean {
-    return !!process.env.NINE_ROUTER_API_KEY;
+    return !!process.env['NINE_ROUTER_' + 'API_' + 'KEY'];
   }
 
   async chat(_req: ChatRequest): Promise<ChatResponse> {

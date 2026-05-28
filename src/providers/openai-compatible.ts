@@ -1,24 +1,69 @@
-// FungiCode OpenAI-compatible adapter — Sprint 0 placeholder
-import type { Provider, CompletionRequest, CompletionResponse, ModelProfile } from "./types.js";
+import { Provider, ProviderId, ChatRequest, ChatResponse } from "./types.js";
 
-export class OpenAICompatibleProvider implements Provider {
-  name: string;
-  supportedProfiles: ModelProfile[] = ["fast", "smart", "coder"];
-  private baseUrl: string;
-  private model: string;
+export function createOpenAICompatibleProvider(
+  id: ProviderId,
+  displayName: string,
+  baseUrl: string,
+  apiKey: string
+): Provider {
+  return {
+    id,
+    displayName,
+    supports: {
+      streaming: false,
+      toolCalling: false,
+      jsonSchema: false,
+      vision: false,
+      longContext: false,
+    },
+    async chat(request: ChatRequest): Promise<ChatResponse> {
+      if (!baseUrl) {
+        throw new Error(`baseUrl is required for ${displayName} provider`);
+      }
 
-  constructor(opts: { name: string; baseUrl: string; model: string }) {
-    this.name = opts.name;
-    this.baseUrl = opts.baseUrl;
-    this.model = opts.model;
-  }
+      // Ensure baseUrl doesn't end with a slash, then append the completions path
+      const url = baseUrl.replace(/\/$/, "") + "/chat/completions";
+      
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: request.model,
+          messages: request.messages,
+          temperature: request.temperature,
+          max_tokens: request.maxTokens,
+        }),
+      });
 
-  isAvailable(): boolean {
-    return !!process.env.OPENAI_API_KEY;
-  }
+      if (!response.ok) {
+        let errorText = await response.text();
+        try {
+          const json = JSON.parse(errorText);
+          if (json.error?.message) {
+            errorText = json.error.message;
+          }
+        } catch {
+          // ignore parsing error
+        }
+        throw new Error(`${displayName} API error (${response.status}): ${errorText}`);
+      }
 
-  // TODO: Sprint 1 — implement fetch call to baseUrl/chat/completions
-  async complete(_req: CompletionRequest): Promise<CompletionResponse> {
-    throw new Error("OpenAICompatibleProvider.complete() not yet implemented — Sprint 1");
-  }
+      const data = await response.json() as any;
+      const content = data.choices?.[0]?.message?.content || "";
+      
+      return {
+        content,
+        model: request.model,
+        provider: id,
+        usage: {
+          inputTokens: data.usage?.prompt_tokens,
+          outputTokens: data.usage?.completion_tokens,
+          totalTokens: data.usage?.total_tokens,
+        },
+      };
+    },
+  };
 }
