@@ -1,34 +1,33 @@
-import { Provider, ProviderId, ChatRequest, ChatResponse } from "./types.js";
+import type { Provider, ChatRequest, ChatResponse } from './types';
+import type { FungiConfig } from '../config/schema';
+import { resolveProviderConfig } from '../config/loader';
 
-export function createOpenAICompatibleProvider(
-  id: ProviderId,
-  displayName: string,
-  baseUrl: string,
-  apiKey: string
-): Provider {
+export function createOpenAICompatible(config: FungiConfig): Provider {
   return {
-    id,
-    displayName,
+    id: 'openai-compatible',
+    displayName: 'OpenAI Compatible',
     supports: {
-      streaming: false,
-      toolCalling: false,
-      jsonSchema: false,
-      vision: false,
-      longContext: false,
+      streaming: true,
+      toolCalling: true,
+      jsonSchema: true,
+      vision: true,
+      longContext: true,
     },
     async chat(request: ChatRequest): Promise<ChatResponse> {
-      if (!baseUrl) {
-        throw new Error(`baseUrl is required for ${displayName} provider`);
+      const providerConfig = resolveProviderConfig(config, 'openai-compatible');
+      const apiKey = process.env[providerConfig.apiKeyEnv];
+      if (!apiKey) {
+        throw new Error(`Missing API key. Set ${providerConfig.apiKeyEnv}.`);
+      }
+      if (!providerConfig.baseUrl) {
+        throw new Error(`Missing baseUrl for openai-compatible in config.`);
       }
 
-      // Ensure baseUrl doesn't end with a slash, then append the completions path
-      const url = baseUrl.replace(/\/$/, "") + "/chat/completions";
-      
-      const response = await fetch(url, {
-        method: "POST",
+      const res = await fetch(`${providerConfig.baseUrl}/chat/completions`, {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
           model: request.model,
@@ -38,32 +37,22 @@ export function createOpenAICompatibleProvider(
         }),
       });
 
-      if (!response.ok) {
-        let errorText = await response.text();
-        try {
-          const json = JSON.parse(errorText);
-          if (json.error?.message) {
-            errorText = json.error.message;
-          }
-        } catch {
-          // ignore parsing error
-        }
-        throw new Error(`${displayName} API error (${response.status}): ${errorText}`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`OpenAI Compatible API error: ${res.status} - ${text}`);
       }
 
-      const data = await response.json() as any;
-      const content = data.choices?.[0]?.message?.content || "";
-      
+      const data = await res.json() as any;
       return {
-        content,
+        content: data.choices[0].message.content,
         model: request.model,
-        provider: id,
-        usage: {
-          inputTokens: data.usage?.prompt_tokens,
-          outputTokens: data.usage?.completion_tokens,
-          totalTokens: data.usage?.total_tokens,
-        },
+        provider: 'openai-compatible',
+        usage: data.usage ? {
+          inputTokens: data.usage.prompt_tokens,
+          outputTokens: data.usage.completion_tokens,
+          totalTokens: data.usage.total_tokens,
+        } : undefined,
       };
-    },
+    }
   };
 }

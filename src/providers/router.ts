@@ -1,96 +1,59 @@
-import { FungiConfig } from "../config/schema.js";
-import { Provider, ProviderId, ModelProfile, ChatMessage, ChatResponse } from "./types.js";
-import { resolveModelProfile, resolveProviderConfig } from "../config/loader.js";
-import { createOpenAICompatibleProvider } from "./openai-compatible.js";
+import type { Provider, ProviderId, ModelProfile, ChatMessage, ChatResponse } from './types';
+import type { FungiConfig } from '../config/schema';
+import { resolveModelProfile, resolveProviderConfig } from '../config/loader';
+import { createNineRouter } from './nine-router';
+import { createOpenAICompatible } from './openai-compatible';
+import { createGemini } from './gemini';
+import { createDeepSeek } from './deepseek';
 
-// Basic gemini placeholder adapter
-function createGeminiProvider(apiKey: string): Provider {
-  return {
-    id: "gemini",
-    displayName: "Google Gemini",
-    supports: {
-      streaming: false,
-      toolCalling: false,
-      jsonSchema: false,
-      vision: false,
-      longContext: false
-    },
-    async chat(request) {
-      if (!apiKey) {
-        throw new Error("Gemini API key is required");
-      }
-      throw new Error("Gemini adapter not fully implemented yet");
-    }
-  }
+export interface ProviderSummary {
+  id: ProviderId;
+  displayName: string;
+}
+
+export interface ModelProfileSummary {
+  profile: ModelProfile;
+  model: string;
 }
 
 export class ProviderRouter {
   private config: FungiConfig;
-  private providers: Map<ProviderId, Provider> = new Map();
+  private providers: Map<ProviderId, Provider>;
 
   constructor(config: FungiConfig) {
     this.config = config;
+    this.providers = new Map();
+
     this.registerProviders();
   }
 
   private registerProviders() {
-    for (const [id, providerConfig] of Object.entries(this.config.providers)) {
-      const apiKey = process.env[providerConfig.apiKeyEnv];
-      
-      if (id === "nine-router") {
-        this.providers.set(id as ProviderId, createOpenAICompatibleProvider(
-          "nine-router",
-          "9Router (OpenRouter)",
-          providerConfig.baseUrl || "https://openrouter.ai/api/v1",
-          apiKey || ""
-        ));
-      } else if (id === "openai-compatible") {
-        this.providers.set(id as ProviderId, createOpenAICompatibleProvider(
-          "openai-compatible",
-          "OpenAI Compatible",
-          providerConfig.baseUrl || "",
-          apiKey || ""
-        ));
-      } else if (id === "deepseek") {
-        this.providers.set(id as ProviderId, createOpenAICompatibleProvider(
-          "deepseek",
-          "DeepSeek",
-          providerConfig.baseUrl || "https://api.deepseek.com",
-          apiKey || ""
-        ));
-      } else if (id === "gemini") {
-        this.providers.set(id as ProviderId, createGeminiProvider(apiKey || ""));
-      }
-    }
+    this.providers.set('nine-router', createNineRouter(this.config));
+    this.providers.set('openai-compatible', createOpenAICompatible(this.config));
+    this.providers.set('gemini', createGemini(this.config));
+    this.providers.set('deepseek', createDeepSeek(this.config));
   }
 
-  listProviders() {
+  listProviders(): ProviderSummary[] {
     return Array.from(this.providers.values()).map(p => ({
       id: p.id,
-      displayName: p.displayName
+      displayName: p.displayName,
     }));
   }
 
-  listModelProfiles() {
-    return Object.entries(this.config.models).map(([profile, modelId]) => ({
-      profile,
-      modelId
+  listModelProfiles(): ModelProfileSummary[] {
+    return Object.entries(this.config.models).map(([profile, model]) => ({
+      profile: profile as ModelProfile,
+      model,
     }));
   }
 
   getProvider(providerId?: ProviderId): Provider {
     const id = providerId || (this.config.defaultProvider as ProviderId);
     const provider = this.providers.get(id);
-    
     if (!provider) {
       throw new Error(`Provider '${id}' is unknown or not configured.`);
     }
-    
-    const providerConfig = this.config.providers[id];
-    if (!process.env[providerConfig.apiKeyEnv]) {
-      throw new Error(`Missing API key. Please set the ${providerConfig.apiKeyEnv} environment variable.`);
-    }
-    
     return provider;
   }
 
@@ -101,11 +64,16 @@ export class ProviderRouter {
     temperature?: number;
     maxTokens?: number;
   }): Promise<ChatResponse> {
+    const model = resolveModelProfile(this.config, input.profile);
     const provider = this.getProvider(input.providerId);
-    const modelId = resolveModelProfile(this.config, input.profile);
+    const providerConfig = resolveProviderConfig(this.config, provider.id);
     
+    if (!process.env[providerConfig.apiKeyEnv]) {
+      throw new Error(`Missing API key. Set ${providerConfig.apiKeyEnv}.`);
+    }
+
     return provider.chat({
-      model: modelId,
+      model,
       messages: input.messages,
       temperature: input.temperature,
       maxTokens: input.maxTokens,
