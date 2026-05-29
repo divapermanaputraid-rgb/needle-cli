@@ -1,0 +1,13 @@
+{
+  "defaultProvider": "nine-router",
+  "models": {
+    "fast": "",
+    "smart": "",
+    "coder": "",
+    "planner": "",
+    "reviewer": ""
+  },
+  "permissions": {
+    "mode": "ask"
+  }
+}
