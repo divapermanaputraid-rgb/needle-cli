@@ -43,3 +43,5 @@ Thumbs.db
 
 # Local Needle state
 .needle/
+docs/
+

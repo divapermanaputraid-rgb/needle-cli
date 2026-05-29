@@ -20,7 +20,8 @@
     "build": "tsup src/cli/index.ts --format esm --dts --clean --no-sourcemap",
     "typecheck": "tsc --noEmit",
     "package:audit": "node scripts/package-audit.mjs",
-    "prepack": "pnpm build && pnpm package:audit"
+    "prepack": "pnpm build && pnpm package:audit",
+    "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
     "commander": "^12.1.0",
