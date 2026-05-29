@@ -1,8 +1,8 @@
 import type { Provider, ChatRequest, ChatResponse } from './types';
-import type { FungiConfig } from '../config/schema';
+import type { NeedleConfig } from '../config/schema';
 import { resolveProviderConfig } from '../config/loader';
 
-export function createOpenAICompatible(config: FungiConfig): Provider {
+export function createOpenAICompatible(config: NeedleConfig): Provider {
   return {
     id: 'openai-compatible',
     displayName: 'OpenAI Compatible',

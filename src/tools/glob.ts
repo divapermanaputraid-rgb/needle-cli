@@ -11,8 +11,8 @@ const IGNORED_PATTERNS = [
   "**/node_modules/**",
   "**/dist/**",
   "**/.git/**",
-  "**/.fungi/cache/**",
-  "**/.fungi/sessions/**",
+  "**/.needle/cache/**",
+  "**/.needle/sessions/**",
 ];
 
 export const globTool: ToolDefinition<GlobInput> = {

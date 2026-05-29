@@ -13,8 +13,8 @@ const IGNORED_PATTERNS = [
   "**/node_modules/**",
   "**/dist/**",
   "**/.git/**",
-  "**/.fungi/cache/**",
-  "**/.fungi/sessions/**",
+  "**/.needle/cache/**",
+  "**/.needle/sessions/**",
 ];
 
 // Simple heuristic for checking if a file is likely binary

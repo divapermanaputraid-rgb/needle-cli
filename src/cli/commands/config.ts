@@ -1,10 +1,10 @@
 import { Command } from 'commander';
-import { loadFungiConfig, saveFungiConfig } from '../../config/loader';
+import { loadNeedleConfig, saveNeedleConfig } from '../../config/loader';
 import { DEFAULT_PROVIDER_CONFIGS } from '../../config/schema';
 import type { ModelProfile } from '../../providers/types';
 
 export const configCommand = new Command('config')
-  .description('Manage FungiCode configuration')
+  .description('Manage Needle configuration')
   .action(() => {
     configCommand.help();
   });
@@ -14,7 +14,7 @@ configCommand
   .description('View current configuration')
   .action(async () => {
     try {
-      const config = await loadFungiConfig(process.cwd());
+      const config = await loadNeedleConfig(process.cwd());
       console.log(JSON.stringify(config, null, 2));
     } catch (err: any) {
       console.error(err.message);
@@ -27,7 +27,7 @@ configCommand
   .description('Set a configuration value (e.g., provider, model.<profile>)')
   .action(async (key: string, value: string) => {
     try {
-      const config = await loadFungiConfig(process.cwd());
+      const config = await loadNeedleConfig(process.cwd());
 
       if (key === 'provider') {
         const mergedProviders = { ...DEFAULT_PROVIDER_CONFIGS, ...(config.providers ?? {}) };
@@ -49,7 +49,7 @@ configCommand
         process.exit(1);
       }
 
-      await saveFungiConfig(process.cwd(), config);
+      await saveNeedleConfig(process.cwd(), config);
       console.log(`Successfully set ${key} to ${value}`);
     } catch (err: any) {
       console.error(err.message);

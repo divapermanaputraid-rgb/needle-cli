@@ -15,7 +15,7 @@ const FORBIDDEN_PATTERNS = [
   /(^|\/)\.ssh\//,
   /(^|\/)\.npmrc$/,
   /(^|\/)\.pypirc$/,
-  /(^|\/)\.fungi\/config\.json$/,
+  /(^|\/)\.needle\/config\.json$/,
   /(^|\/)id_rsa/,
   /(^|\/)aws\/credentials/,
 ];

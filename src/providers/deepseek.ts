@@ -1,8 +1,8 @@
 import type { Provider, ChatRequest, ChatResponse } from './types';
-import type { FungiConfig } from '../config/schema';
+import type { NeedleConfig } from '../config/schema';
 import { resolveProviderConfig } from '../config/loader';
 
-export function createDeepSeek(config: FungiConfig): Provider {
+export function createDeepSeek(config: NeedleConfig): Provider {
   return {
     id: 'deepseek',
     displayName: 'DeepSeek',

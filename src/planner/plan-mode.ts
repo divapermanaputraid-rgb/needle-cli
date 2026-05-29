@@ -1,4 +1,4 @@
-// FungiCode Plan Mode — Sprint 0 placeholder
+// Needle Plan Mode — Sprint 0 placeholder
 
 export interface PlanMode {
   generatePlan(prompt: string): Promise<string>;
@@ -6,12 +6,12 @@ export interface PlanMode {
 }
 
 // TODO: Sprint 1 — structured planning loop
-export class FungiPlanMode implements PlanMode {
+export class NeedlePlanMode implements PlanMode {
   async generatePlan(_prompt: string): Promise<string> {
-    throw new Error("FungiPlanMode.generatePlan() not yet implemented — Sprint 1");
+    throw new Error("NeedlePlanMode.generatePlan() not yet implemented — Sprint 1");
   }
 
   async executePlan(): Promise<void> {
-    throw new Error("FungiPlanMode.executePlan() not yet implemented — Sprint 1");
+    throw new Error("NeedlePlanMode.executePlan() not yet implemented — Sprint 1");
   }
 }

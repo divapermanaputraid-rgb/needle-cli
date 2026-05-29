@@ -1,13 +1,13 @@
 import { Command } from "commander";
 import { createDefaultToolRegistry } from "../../tools/registry.js";
 import { ToolContext } from "../../tools/types.js";
-import { loadFungiConfig } from "../../config/loader.js";
+import { loadNeedleConfig } from "../../config/loader.js";
 import { createPolicy } from "../../permissions/policy.js";
 import { classifyRisk } from "../../permissions/risk-classifier.js";
 import { promptApproval } from "../../permissions/approval-prompt.js";
 
 export const toolsCommand = new Command("tools")
-  .description("Manage and execute FungiCode tools");
+  .description("Manage and execute Needle tools");
 
 toolsCommand
   .command("list")
@@ -60,7 +60,7 @@ toolsCommand
         }
       }
 
-      const config = await loadFungiConfig(process.cwd());
+      const config = await loadNeedleConfig(process.cwd());
       const policy = createPolicy(config.permissions.mode);
       
       const risk = classifyRisk(name, input);

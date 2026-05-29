@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { loadFungiConfig } from '../../config/loader';
+import { loadNeedleConfig } from '../../config/loader';
 import { createProviderRouter } from '../../providers/router';
 import type { ModelProfile, ProviderId } from '../../providers/types';
 
@@ -10,7 +10,7 @@ export const chatCommand = new Command('chat')
   .option('--provider <provider>', 'Override default provider')
   .action(async (prompt: string | undefined, options) => {
     try {
-      const config = await loadFungiConfig(process.cwd());
+      const config = await loadNeedleConfig(process.cwd());
       const router = createProviderRouter(config);
 
       const profile = options.profile as ModelProfile;
@@ -33,7 +33,7 @@ export const chatCommand = new Command('chat')
       } else {
         // Interactive mode (stub for now, just print a message)
         console.log('Interactive chat mode is coming in a future sprint.');
-        console.log('For now, use: fungi chat "your prompt here"');
+        console.log('For now, use: needle chat "your prompt here"');
       }
     } catch (err: any) {
       console.error(err.message);

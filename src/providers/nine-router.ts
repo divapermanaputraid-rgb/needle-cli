@@ -1,8 +1,8 @@
 import type { Provider, ChatRequest, ChatResponse } from './types';
-import type { FungiConfig } from '../config/schema';
+import type { NeedleConfig } from '../config/schema';
 import { resolveProviderConfig } from '../config/loader';
 
-export function createNineRouter(config: FungiConfig): Provider {
+export function createNineRouter(config: NeedleConfig): Provider {
   return {
     id: 'nine-router',
     displayName: 'Nine Router',
@@ -25,8 +25,8 @@ export function createNineRouter(config: FungiConfig): Provider {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://github.com/fungicode/fungi-cli',
-          'X-Title': 'FungiCode',
+          'HTTP-Referer': 'https://github.com/needle/needle-cli',
+          'X-Title': 'Needle',
         },
         body: JSON.stringify({
           model: request.model,

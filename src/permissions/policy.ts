@@ -1,4 +1,4 @@
-// FungiCode Permission Policy — Sprint 0
+// Needle Permission Policy — Sprint 0
 import type { PermissionMode } from "../config/schema.js";
 import type { RiskLevel } from "../tools/types.js";
 

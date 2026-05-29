@@ -1,4 +1,4 @@
-// FungiCode memory: project-memory — Sprint 0 placeholder
+// Needle memory: project-memory — Sprint 0 placeholder
 
 export interface ProjectMemory {
   load(): Promise<string>;
@@ -6,12 +6,12 @@ export interface ProjectMemory {
 }
 
 // TODO: implement actual project memory in Sprint 1
-export class FungiProjectMemory implements ProjectMemory {
+export class NeedleProjectMemory implements ProjectMemory {
   async load(): Promise<string> {
-    throw new Error("FungiProjectMemory.load() not yet implemented — Sprint 1");
+    throw new Error("NeedleProjectMemory.load() not yet implemented — Sprint 1");
   }
 
   async save(_context: string): Promise<void> {
-    throw new Error("FungiProjectMemory.save() not yet implemented — Sprint 1");
+    throw new Error("NeedleProjectMemory.save() not yet implemented — Sprint 1");
   }
 }

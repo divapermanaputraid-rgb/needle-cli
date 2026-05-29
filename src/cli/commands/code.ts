@@ -1,4 +1,4 @@
-// FungiCode: fungi code
+// Needle: needle code
 import { Command } from "commander";
 import { printHeader } from "../../ui/terminal.js";
 

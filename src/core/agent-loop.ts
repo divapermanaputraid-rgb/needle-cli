@@ -1,4 +1,4 @@
-// FungiCode core: agent-loop — Sprint 0 placeholder
+// Needle core: agent-loop — Sprint 0 placeholder
 
 export interface AgentLoop {
   start(): Promise<void>;
@@ -6,9 +6,9 @@ export interface AgentLoop {
 }
 
 // TODO: implement actual loop in Sprint 1
-export class FungiAgentLoop implements AgentLoop {
+export class NeedleAgentLoop implements AgentLoop {
   async start(): Promise<void> {
-    throw new Error("FungiAgentLoop.start() not yet implemented — Sprint 1");
+    throw new Error("NeedleAgentLoop.start() not yet implemented — Sprint 1");
   }
 
   stop(): void {

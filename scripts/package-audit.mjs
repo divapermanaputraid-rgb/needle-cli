@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * FungiCode package audit script.
+ * Needle package audit script.
  * Fails if risky files or forbidden strings appear in the publish candidates.
  * Run: node scripts/package-audit.mjs
  */
@@ -32,7 +32,7 @@ const FORBIDDEN_REGEX = [
 
 let failed = false;
 
-console.log("🍄 FungiCode package audit starting...\n");
+console.log("🪡 Needle package audit starting...\n");
 
 // --- Step 1: Check packed file list ---
 let packedFiles = [];

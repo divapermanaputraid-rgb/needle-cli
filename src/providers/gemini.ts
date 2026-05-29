@@ -1,8 +1,8 @@
 import type { Provider, ChatRequest, ChatResponse } from './types';
-import type { FungiConfig } from '../config/schema';
+import type { NeedleConfig } from '../config/schema';
 import { resolveProviderConfig } from '../config/loader';
 
-export function createGemini(config: FungiConfig): Provider {
+export function createGemini(config: NeedleConfig): Provider {
   return {
     id: 'gemini',
     displayName: 'Google Gemini',

@@ -1,5 +1,5 @@
 import type { Provider, ProviderId, ModelProfile, ChatMessage, ChatResponse } from './types';
-import type { FungiConfig } from '../config/schema';
+import type { NeedleConfig } from '../config/schema';
 import { resolveModelProfile, resolveProviderConfig } from '../config/loader';
 import { createNineRouter } from './nine-router';
 import { createOpenAICompatible } from './openai-compatible';
@@ -17,10 +17,10 @@ export interface ModelProfileSummary {
 }
 
 export class ProviderRouter {
-  private config: FungiConfig;
+  private config: NeedleConfig;
   private providers: Map<ProviderId, Provider>;
 
-  constructor(config: FungiConfig) {
+  constructor(config: NeedleConfig) {
     this.config = config;
     this.providers = new Map();
 
@@ -81,6 +81,6 @@ export class ProviderRouter {
   }
 }
 
-export function createProviderRouter(config: FungiConfig): ProviderRouter {
+export function createProviderRouter(config: NeedleConfig): ProviderRouter {
   return new ProviderRouter(config);
 }

@@ -1,12 +1,12 @@
 import { Command } from 'commander';
-import { loadFungiConfig } from '../../config/loader';
+import { loadNeedleConfig } from '../../config/loader';
 import { createProviderRouter } from '../../providers/router';
 
 export const modelsCommand = new Command('models')
   .description('List available providers and configured model profiles')
   .action(async () => {
     try {
-      const config = await loadFungiConfig(process.cwd());
+      const config = await loadNeedleConfig(process.cwd());
       const router = createProviderRouter(config);
 
       console.log('Available Providers:');
