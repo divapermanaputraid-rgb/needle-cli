@@ -1,5 +1,7 @@
 # Needle
 
+<img src="assets/logo.png" alt="Needle Logo" width="100" />
+
 Needle is an open-source, multi-provider AI coding CLI inspired by modern agentic coding assistants and terminal-first developer workflows.
 
 ## Features
