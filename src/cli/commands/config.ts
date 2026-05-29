@@ -44,8 +44,27 @@ configCommand
           process.exit(1);
         }
         config.models[profile] = value;
+      } else if (key.startsWith('providers.')) {
+        const parts = key.split('.');
+        if (parts.length !== 3 || parts[2] !== 'baseUrl') {
+          console.error(`Error: Unsupported provider config key '${key}'. Expected format: providers.<provider>.baseUrl`);
+          process.exit(1);
+        }
+        const providerId = parts[1];
+        const mergedProviders = { ...DEFAULT_PROVIDER_CONFIGS, ...(config.providers ?? {}) };
+        if (!mergedProviders[providerId]) {
+          console.error(`Error: Unknown provider '${providerId}'.`);
+          process.exit(1);
+        }
+        if (!config.providers) {
+          config.providers = {};
+        }
+        if (!config.providers[providerId]) {
+          config.providers[providerId] = { ...DEFAULT_PROVIDER_CONFIGS[providerId] };
+        }
+        config.providers[providerId].baseUrl = value;
       } else {
-        console.error(`Error: Unsupported config key '${key}'. Supported keys are 'provider' and 'model.<profile>'.`);
+        console.error(`Error: Unsupported config key '${key}'. Supported keys are 'provider', 'providers.<provider>.baseUrl', and 'model.<profile>'.`);
         process.exit(1);
       }
 

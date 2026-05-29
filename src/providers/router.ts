@@ -65,13 +65,28 @@ export class ProviderRouter {
     providerId?: ProviderId;
     temperature?: number;
     maxTokens?: number;
+    dryRun?: boolean;
   }): Promise<ChatResponse> {
     const model = resolveModelProfile(this.config, input.profile);
     const provider = this.getProvider(input.providerId);
     const providerConfig = resolveProviderConfig(this.config, provider.id);
-    
-    if (!process.env[providerConfig.apiKeyEnv]) {
-      throw new Error(`Missing API key. Set ${providerConfig.apiKeyEnv}.`);
+
+    if (!input.dryRun) {
+      if (!process.env[providerConfig.apiKeyEnv]) {
+        throw new Error(`Missing API key. Set ${providerConfig.apiKeyEnv}.`);
+      }
+      
+      if (provider.id === '9router' && !providerConfig.baseUrl) {
+        throw new Error(`Missing 9Router base URL. Set it with:\n  needle config set providers.9router.baseUrl <url>`);
+      }
+    }
+
+    if (input.dryRun) {
+      return {
+        content: JSON.stringify({ type: "final", summary: "Dry run: Prompt built successfully, but provider was not called." }),
+        model: model || 'dry-run-model',
+        provider: provider.id,
+      };
     }
 
     return provider.chat({

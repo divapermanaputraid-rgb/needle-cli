@@ -32,7 +32,8 @@ export function codeCommand(): Command {
       const providerChat = async (messages: any[]) => {
         return router.chatWithProfile({
           profile: opts.profile as ModelProfile,
-          messages
+          messages,
+          dryRun: opts.dryRun
         });
       };
 

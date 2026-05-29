@@ -11,9 +11,23 @@ export const modelsCommand = new Command('models')
 
       console.log('Available Providers:');
       const providers = router.listProviders();
+      
+      const mergedProviders = { 
+        ...require('../../config/schema').DEFAULT_PROVIDER_CONFIGS, 
+        ...(config.providers ?? {}) 
+      };
+
       providers.forEach(p => {
         const isDefault = p.id === config.defaultProvider;
+        const pConfig = mergedProviders[p.id];
+        const apiKeyEnv = pConfig?.apiKeyEnv || '';
+        const baseUrl = pConfig?.baseUrl || '';
+        const isApiKeySet = process.env[apiKeyEnv] ? 'set' : 'missing';
+        const baseUrlStatus = baseUrl ? `baseUrl: ${baseUrl}` : 'baseUrl: default/none';
+        
         console.log(`  - ${p.displayName} (${p.id})${isDefault ? ' [DEFAULT]' : ''}`);
+        console.log(`      ${baseUrlStatus}`);
+        console.log(`      ${apiKeyEnv}: ${isApiKeySet}`);
       });
 
       console.log('\nConfigured Model Profiles:');
