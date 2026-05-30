@@ -244,8 +244,26 @@ export async function runReflect(options: ReflectOptions): Promise<ReflectResult
         lastReflected: nextMemory.lastReflected
       };
       
-      nextMemory = safeMemory;
-      usedLlm = true;
+      // 2. Improve LLM reflect dry-run consistency - Empty JSON logic
+      // If the LLM returned empty arrays for ALL sections, it means it couldn't glean anything
+      // or got confused. We fallback to deterministic so memory doesn't just clear out uselessly.
+      const isEmpty = (
+        safeMemory.projectSummary.length === 0 &&
+        safeMemory.architectureNotes.length === 0 &&
+        safeMemory.commands.length === 0 &&
+        safeMemory.conventions.length === 0 &&
+        safeMemory.decisions.length === 0 &&
+        safeMemory.recurringIssues.length === 0 &&
+        safeMemory.todo.length === 0
+      );
+
+      if (isEmpty) {
+        console.warn("LLM returned empty memory. Falling back to deterministic reflection.");
+        nextMemory = buildMemoryFromSessions(existingMemory, sessions);
+      } else {
+        nextMemory = safeMemory;
+        usedLlm = true;
+      }
 
     } catch (error: any) {
       return {
@@ -271,12 +289,19 @@ export async function runReflect(options: ReflectOptions): Promise<ReflectResult
     await writeProjectMemoryAtomic(options.cwd, nextMemory, { force: options.force });
   }
 
+  let fallbackMsg = "";
+  if (options.llm && !usedLlm) {
+    fallbackMsg = " (fallback to deterministic)";
+  }
+
+  const modeStr = usedLlm ? `LLM-assisted (profile: ${options.profile || 'smart'})` : `deterministic${fallbackMsg}`;
+
   return {
     ok: true,
     dryRun: !!options.dryRun,
     sessionsRead: sessions.length,
     memoryPath,
     proposedMemory: formattedMemory,
-    summary: `Reflected over ${sessions.length} sessions (${usedLlm ? `LLM-assisted, profile: ${options.profile || 'smart'}` : 'deterministic'}) and updated MEMORY.md.`
+    summary: `Reflected over ${sessions.length} sessions. Mode: ${modeStr}.`
   };
 }

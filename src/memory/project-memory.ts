@@ -1,6 +1,25 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { redactSessionText } from "../core/session.js";
+import * as os from "node:os";
+
+// 3. Privacy polish - absolute paths sanitized
+export function sanitizePaths(text: string): string {
+  if (!text) return text;
+  
+  const homeDir = os.homedir();
+  if (!homeDir) return text;
+  
+  // Replace absolute home path with ~
+  const homeRegex = new RegExp(homeDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+  let result = text.replace(homeRegex, '~');
+
+  // Specific workspace path redaction if needed, though home regex usually catches it
+  const workspaceRegex = /\/Users\/[^/]+\/workspace\/[^/]+\/[^/]+/g;
+  result = result.replace(workspaceRegex, 'project root');
+
+  return result;
+}
 
 export interface ProjectMemory {
   projectSummary: string[];
@@ -90,7 +109,7 @@ export function formatProjectMemory(memory: ProjectMemory): string {
     } else {
       for (const item of items) {
         // Redact defensively just in case
-        parts.push(`- ${redactSessionText(item)}`);
+        parts.push(`- ${sanitizePaths(redactSessionText(item))}`);
       }
     }
     parts.push("");

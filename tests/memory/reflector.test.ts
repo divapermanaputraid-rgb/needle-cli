@@ -28,6 +28,52 @@ test("Reflector - runReflect handles no sessions cleanly", async () => {
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
+test("Reflector LLM - empty JSON falls back to deterministic", async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-ref-test-"));
+  
+  await createTempSession(tmpDir, [{
+    id: "s1",
+    timestamp: new Date().toISOString(),
+    task: "Add auth",
+    mode: "plan",
+    summary: "- Decided to use JWT"
+  }]);
+  
+  const mockProviderChat = async (messages: any[]) => {
+    return {
+      content: JSON.stringify({
+        projectSummary: [],
+        architectureNotes: [],
+        commands: [],
+        conventions: [],
+        decisions: [],
+        recurringIssues: [],
+        todo: []
+      }),
+      usage: { promptTokens: 10, completionTokens: 10, totalTokens: 20 }
+    };
+  };
+
+  const result = await runReflect({ 
+    cwd: tmpDir, 
+    llm: true, 
+    providerChat: mockProviderChat 
+  });
+
+  assert.ok(result.ok);
+  assert.match(result.summary, /fallback to deterministic/);
+
+  const memPath = path.join(tmpDir, ".needle", "MEMORY.md");
+  const stat = await fs.stat(memPath);
+  assert.ok(stat.isFile()); // Should exist
+  
+  // Should have the deterministic fallback content
+  const mem = await readProjectMemory(tmpDir);
+  assert.ok(mem.decisions.includes("Decided to use JWT"));
+  
+  await fs.rm(tmpDir, { recursive: true, force: true });
+});
+
 test("Reflector - dry-run does not write MEMORY.md", async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-ref-test-"));
   
