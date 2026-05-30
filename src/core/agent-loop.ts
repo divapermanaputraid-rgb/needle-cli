@@ -2,6 +2,7 @@ import type { ModelProfile, ChatMessage, ChatResponse } from "../providers/types
 import { ToolRegistry, createDefaultToolRegistry } from "../tools/registry.js";
 import { buildProjectContext } from "./context-builder.js";
 import { buildAgentSystemPrompt, buildAgentUserPrompt } from "./prompt-builder.js";
+import { appendSessionRecord, createSessionId, SessionRecord } from "./session.js";
 
 export interface AgentLoopOptions {
   cwd: string;
@@ -26,6 +27,7 @@ export interface AgentLoopResult {
 }
 
 export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoopResult> {
+  const startTime = Date.now();
   const maxIterations = options.maxIterations ?? 8;
   const isDryRun = options.dryRun ?? false;
   
@@ -45,9 +47,25 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
   let success = false;
 
   if (isDryRun) {
+    const summary = "Dry run completed. Context and prompt built successfully. Provider execution skipped.";
+    const record: SessionRecord = {
+      id: createSessionId(),
+      createdAt: new Date().toISOString(),
+      mode: "code",
+      task: options.task,
+      cwd: options.cwd,
+      profile: typeof options.profile === "string" ? options.profile : undefined,
+      status: "success",
+      durationMs: Date.now() - startTime,
+      summary,
+      toolCalls: [],
+      errors: []
+    };
+    await appendSessionRecord(options.cwd, record);
+
     return {
       ok: true,
-      summary: "Dry run completed. Context and prompt built successfully. Provider execution skipped.",
+      summary,
       iterations: 0,
       toolCalls: []
     };
@@ -57,6 +75,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     { role: "system", content: systemPrompt },
     { role: "user", content: buildAgentUserPrompt(options.task) }
   ];
+
+  const errors: string[] = [];
 
   while (iterations < maxIterations) {
     iterations++;
@@ -72,9 +92,11 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     try {
       parsed = JSON.parse(response.content);
     } catch (err) {
+      const errMsg = "Error: Invalid JSON response.";
+      errors.push(errMsg);
       messages.push({
         role: "user",
-        content: "Error: Invalid JSON response. You must respond ONLY with valid JSON using the required protocol formats."
+        content: errMsg + " You must respond ONLY with valid JSON using the required protocol formats."
       });
       continue;
     }
@@ -113,9 +135,11 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         });
       } catch (err) {
         toolCalls.push({ tool: toolName, ok: false });
+        const errMsg = err instanceof Error ? err.message : String(err);
+        errors.push(`Tool execution error for ${toolName}: ${errMsg}`);
         messages.push({
           role: "user",
-          content: `Error executing tool: ${err instanceof Error ? err.message : String(err)}`
+          content: `Error executing tool: ${errMsg}`
         });
       }
     } else {
@@ -130,6 +154,22 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     success = false;
     finalSummary = `Task failed: Reached maximum iterations (${maxIterations}).`;
   }
+
+  const record: SessionRecord = {
+    id: createSessionId(),
+    createdAt: new Date().toISOString(),
+    mode: "code",
+    task: options.task,
+    cwd: options.cwd,
+    profile: typeof options.profile === "string" ? options.profile : undefined,
+    status: success ? "success" : "failure",
+    durationMs: Date.now() - startTime,
+    summary: finalSummary,
+    toolCalls: toolCalls.map(t => ({ tool: t.tool, ok: t.ok })),
+    errors: errors.length > 0 ? errors : undefined
+  };
+
+  await appendSessionRecord(options.cwd, record);
 
   return {
     ok: success,

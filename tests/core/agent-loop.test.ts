@@ -1,10 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
 import { runAgentLoop } from "../../src/core/agent-loop.js";
 import { ToolRegistry } from "../../src/tools/registry.js";
 import type { ChatMessage, ChatResponse } from "../../src/providers/types.js";
 
-test("agent loop stops on final response", async () => {
+test("agent loop stops on final response and logs session", async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-test-"));
   const providerChat = async (messages: ChatMessage[]): Promise<ChatResponse> => {
     return {
       content: JSON.stringify({ type: "final", summary: "Done" }),
@@ -14,7 +18,7 @@ test("agent loop stops on final response", async () => {
   };
 
   const result = await runAgentLoop({
-    cwd: process.cwd(),
+    cwd: tmpDir,
     task: "do something",
     providerChat,
     maxIterations: 2
@@ -23,6 +27,15 @@ test("agent loop stops on final response", async () => {
   assert.equal(result.ok, true);
   assert.equal(result.iterations, 1);
   assert.equal(result.summary, "Done");
+
+  const sessionsRaw = await fs.readFile(path.join(tmpDir, ".needle", "sessions", "runs.jsonl"), "utf-8");
+  const sessions = sessionsRaw.trim().split("\n").map(l => JSON.parse(l));
+  
+  assert.equal(sessions.length, 1);
+  assert.equal(sessions[0].mode, "code");
+  assert.equal(sessions[0].task, "do something");
+  assert.equal(sessions[0].status, "success");
+  assert.equal(sessions[0].summary, "Done");
 });
 
 test("agent loop executes safe read-only tool", async () => {
