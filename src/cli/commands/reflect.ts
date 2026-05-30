@@ -23,6 +23,7 @@ export function reflectCommand(): Command {
         const cwd = process.cwd();
         
         let providerChat;
+        let activeProvider = "unknown";
         if (options.llm) {
            let config;
            try {
@@ -30,6 +31,7 @@ export function reflectCommand(): Command {
            } catch {
              config = createDefaultConfig();
            }
+           activeProvider = config.defaultProvider || "unknown";
            const router = createProviderRouter(config);
            providerChat = async (messages: any[]) => router.chatWithProfile({
              profile: options.profile as ModelProfile,
@@ -53,14 +55,47 @@ export function reflectCommand(): Command {
           return;
         }
 
+        // 5. CLI output polish
+        print("\nReflect Summary:");
+        print(`  Sessions Read: ${result.sessionsRead}`);
+        print(`  Memory Path:   ${result.memoryPath}`);
+        if (options.dryRun) {
+          print(`  Dry Run:       true (no files modified)`);
+        }
+        
+        // Mode extraction
+        let modeOut = "deterministic";
+        let fallbackOut = "false";
+        
+        if (options.llm) {
+           modeOut = "LLM-assisted";
+           if (result.summary.includes("fallback to deterministic") || result.summary.includes("failed")) {
+               fallbackOut = "true";
+           }
+        }
+        
+        print(`  Mode:          ${modeOut}`);
+        if (options.llm) {
+           print(`  Provider:      ${activeProvider}`);
+           print(`  Profile:       ${options.profile || "smart"}`);
+           print(`  Fallback:      ${fallbackOut}`);
+        }
+        print(""); // Empty line for spacing
+        
+        if (result.sessionsRead === 0) {
+          print("No sessions found to reflect upon.");
+          return;
+        }
+
         if (result.dryRun) {
-          print(`\n[DRY RUN] Proposed memory update based on ${result.sessionsRead} sessions:\n`);
+          print(`[DRY RUN] Proposed memory update:\n`);
           console.log(result.proposedMemory);
         } else {
           print(result.summary);
         }
 
       } catch (error: any) {
+        // No stack traces for normal config/provider errors
         printError(`Reflect failed: ${error.message}`);
         process.exit(1);
       }
