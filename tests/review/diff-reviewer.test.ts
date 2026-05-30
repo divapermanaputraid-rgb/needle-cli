@@ -109,6 +109,14 @@ describe("Diff Reviewer", () => {
     
     const userPrompt = capturedMessages.find(m => m.role === "user")?.content || "";
     assert.match(userPrompt, /Unstaged/);
+
+    const sessionsRaw = await fs.readFile(path.join(tmpDir, ".needle", "sessions", "runs.jsonl"), "utf-8");
+    const sessions = sessionsRaw.trim().split("\n").map(l => JSON.parse(l));
+    assert.equal(sessions.length, 1);
+    assert.equal(sessions[0].mode, "review");
+    assert.equal(sessions[0].task, "review unstaged diff");
+    assert.equal(sessions[0].status, "success");
+    assert.ok(sessions[0].summary.includes("Looks good"));
   });
 
   test("supports staged mode", async () => {

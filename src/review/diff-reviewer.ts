@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import type { ModelProfile, ChatMessage, ChatResponse } from "../providers/types.js";
 import { buildProjectContext } from "../core/context-builder.js";
 import { buildReviewerSystemPrompt, buildReviewerUserPrompt } from "../core/prompt-builder.js";
+import { appendSessionRecord, createSessionId, SessionRecord } from "../core/session.js";
 
 export interface DiffReviewOptions {
   cwd: string;
@@ -21,6 +22,7 @@ export interface DiffReviewResult {
 }
 
 export async function runDiffReview(options: DiffReviewOptions): Promise<DiffReviewResult> {
+  const startTime = Date.now();
   const staged = options.staged ?? false;
   const profile = options.profile ?? "reviewer";
   const maxDiffBytes = options.maxDiffBytes ?? 200 * 1024; // 200KB
@@ -107,7 +109,7 @@ export async function runDiffReview(options: DiffReviewOptions): Promise<DiffRev
 
   try {
     const response = await options.providerChat(messages);
-    return {
+    const result: DiffReviewResult = {
       ok: true,
       review: response.content,
       profile,
@@ -115,14 +117,48 @@ export async function runDiffReview(options: DiffReviewOptions): Promise<DiffRev
       diffBytes,
       truncated,
     };
+
+    const record: SessionRecord = {
+      id: createSessionId(),
+      createdAt: new Date().toISOString(),
+      mode: "review",
+      task: `review ${staged ? 'staged' : 'unstaged'} diff`,
+      cwd: options.cwd,
+      profile: typeof profile === "string" ? profile : undefined,
+      status: "success",
+      durationMs: Date.now() - startTime,
+      summary: response.content,
+      artifacts: [staged ? "staged" : "unstaged"]
+    };
+    await appendSessionRecord(options.cwd, record);
+
+    return result;
   } catch (error) {
-    return {
+    const errMsg = `Review failed: ${error instanceof Error ? error.message : String(error)}`;
+    const result: DiffReviewResult = {
       ok: false,
-      review: `Review failed: ${error instanceof Error ? error.message : String(error)}`,
+      review: errMsg,
       profile,
       staged,
       diffBytes,
       truncated,
     };
+    
+    const record: SessionRecord = {
+      id: createSessionId(),
+      createdAt: new Date().toISOString(),
+      mode: "review",
+      task: `review ${staged ? 'staged' : 'unstaged'} diff`,
+      cwd: options.cwd,
+      profile: typeof profile === "string" ? profile : undefined,
+      status: "failure",
+      durationMs: Date.now() - startTime,
+      summary: errMsg,
+      errors: [errMsg],
+      artifacts: [staged ? "staged" : "unstaged"]
+    };
+    await appendSessionRecord(options.cwd, record);
+
+    return result;
   }
 }
