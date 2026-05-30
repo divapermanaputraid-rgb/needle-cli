@@ -26,7 +26,17 @@ export function codeCommand(): Command {
       }
 
       const cwd = process.cwd();
-      const config = await loadNeedleConfig(cwd);
+      let config;
+      try {
+        config = await loadNeedleConfig(cwd);
+      } catch (err: any) {
+        if (err.message && err.message.includes("Config file not found")) {
+          console.error("Error: Config file not found. Run `needle init`.");
+        } else {
+          console.error(`Error: ${err.message}`);
+        }
+        process.exit(1);
+      }
       const router = createProviderRouter(config);
 
       const providerChat = async (messages: any[]) => {
