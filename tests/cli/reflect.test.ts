@@ -27,8 +27,12 @@ test("CLI - reflect --force option exists", () => {
   assert.ok(option);
 });
 
-test("CLI - --llm placeholder does not call provider", () => {
+test("CLI - --llm and --profile options exist", () => {
   const cmd = reflectCommand();
-  const option = cmd.options.find(o => o.long === "--llm");
-  assert.ok(option);
+  const llmOption = cmd.options.find(o => o.long === "--llm");
+  assert.ok(llmOption);
+  
+  const profileOption = cmd.options.find(o => o.long === "--profile");
+  assert.ok(profileOption);
+  assert.equal(profileOption.defaultValue, "smart");
 });

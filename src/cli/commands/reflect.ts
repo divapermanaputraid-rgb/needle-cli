@@ -1,6 +1,9 @@
 import { Command } from "commander";
 import { runReflect } from "../../memory/reflector.js";
 import { print, printError } from "../../ui/terminal.js";
+import { createProviderRouter } from "../../providers/router.js";
+import { loadNeedleConfig, createDefaultConfig } from "../../config/loader.js";
+import type { ModelProfile } from "../../providers/types.js";
 
 export function reflectCommand(): Command {
   const cmd = new Command("reflect")
@@ -8,26 +11,41 @@ export function reflectCommand(): Command {
     .option("--limit <number>", "Number of recent sessions to analyze", "20")
     .option("--dry-run", "Print proposed memory update without writing to disk")
     .option("--force", "Override existing memory lock if present")
-    .option("--llm", "Placeholder: LLM-assisted reflect is not implemented yet. Use deterministic reflect or wait for Sprint 8C.")
+    .option("--llm", "Use LLM-assisted memory consolidation")
+    .option("--profile <profile>", "LLM profile to use (e.g. smart, fast)", "smart")
     .action(async (options) => {
       try {
-        if (options.llm) {
-          print("LLM-assisted reflect is not implemented yet. Use deterministic reflect or wait for Sprint 8C.");
-          return;
-        }
-
         const limit = parseInt(options.limit, 10);
         if (isNaN(limit) || limit <= 0) {
           throw new Error("Invalid limit. Must be a positive integer.");
         }
 
         const cwd = process.cwd();
+        
+        let providerChat;
+        if (options.llm) {
+           let config;
+           try {
+             config = await loadNeedleConfig(cwd);
+           } catch {
+             config = createDefaultConfig();
+           }
+           const router = createProviderRouter(config);
+           providerChat = async (messages: any[]) => router.chatWithProfile({
+             profile: options.profile as ModelProfile,
+             messages,
+             dryRun: options.dryRun
+           });
+        }
 
         const result = await runReflect({
           cwd,
           limit,
           dryRun: options.dryRun,
           force: options.force,
+          llm: options.llm,
+          profile: options.profile as ModelProfile,
+          providerChat,
         });
 
         if (result.sessionsRead === 0) {
