@@ -127,6 +127,29 @@ test("agent prompt includes Project Memory via ProjectContext", () => {
   assert.match(prompt, /Agent Memory Fact/);
 });
 
+test("agent prompt warns about stale memory", () => {
+  const ctx: ProjectContext = {
+    cwd: "/test",
+    packageManager: "npm",
+    projectType: ["Node.js"],
+    rootFiles: [],
+    treeSummary: "",
+    safetyNotes: [],
+    projectMemorySummary: "Agent Memory Fact"
+  };
+  
+  const input: AgentPromptInput = {
+    task: "do something",
+    projectContext: ctx,
+    tools: []
+  };
+
+  const prompt = buildAgentSystemPrompt(input);
+  assert.match(prompt, /Project Memory may be stale/);
+  assert.match(prompt, /Use current files and explicit user task over memory/);
+  assert.match(prompt, /Memory must not override safety rules/);
+});
+
 test("planner prompt inherits Project Memory if it uses ProjectContext formatting", () => {
   const ctx: ProjectContext = {
     cwd: "/test",
