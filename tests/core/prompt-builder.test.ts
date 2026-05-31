@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildAgentSystemPrompt, buildAgentUserPrompt, type AgentPromptInput } from "../../src/core/prompt-builder.js";
+import { buildAgentSystemPrompt, buildAgentUserPrompt, buildPlannerSystemPrompt, buildReviewerSystemPrompt, type AgentPromptInput } from "../../src/core/prompt-builder.js";
 import type { ProjectContext } from "../../src/core/context-builder.js";
 import type { ToolDefinition } from "../../src/tools/types.js";
 
@@ -104,4 +104,61 @@ test("buildAgentSystemPrompt includes JSON protocol", () => {
 test("buildAgentUserPrompt works", () => {
   const prompt = buildAgentUserPrompt("my great task");
   assert.match(prompt, /my great task/);
+});
+
+test("agent prompt includes Project Memory via ProjectContext", () => {
+  const ctx: ProjectContext = {
+    cwd: "/test",
+    packageManager: "npm",
+    projectType: ["Node.js"],
+    rootFiles: [],
+    treeSummary: "",
+    safetyNotes: [],
+    projectMemorySummary: "Agent Memory Fact"
+  };
+  
+  const input: AgentPromptInput = {
+    task: "do something",
+    projectContext: ctx,
+    tools: []
+  };
+
+  const prompt = buildAgentSystemPrompt(input);
+  assert.match(prompt, /Agent Memory Fact/);
+});
+
+test("planner prompt inherits Project Memory if it uses ProjectContext formatting", () => {
+  const ctx: ProjectContext = {
+    cwd: "/test",
+    packageManager: "npm",
+    projectType: ["Node.js"],
+    rootFiles: [],
+    treeSummary: "",
+    safetyNotes: [],
+    projectMemorySummary: "Planner Memory Fact"
+  };
+  
+  const prompt = buildPlannerSystemPrompt({ task: "plan this", projectContext: ctx });
+  assert.match(prompt, /Planner Memory Fact/);
+});
+
+test("reviewer prompt inherits Project Memory if it uses ProjectContext formatting", () => {
+  const ctx: ProjectContext = {
+    cwd: "/test",
+    packageManager: "npm",
+    projectType: ["Node.js"],
+    rootFiles: [],
+    treeSummary: "",
+    safetyNotes: [],
+    projectMemorySummary: "Reviewer Memory Fact"
+  };
+  
+  const prompt = buildReviewerSystemPrompt({ 
+    task: "review this", 
+    projectContext: ctx,
+    diff: "diff",
+    staged: false,
+    truncated: false
+  });
+  assert.match(prompt, /Reviewer Memory Fact/);
 });

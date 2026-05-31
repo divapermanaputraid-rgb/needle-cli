@@ -110,3 +110,70 @@ test("detects bun from bun.lock", async () => {
   assert.equal(ctx.packageManager, "bun");
   await fs.rm(bunDir, { recursive: true, force: true });
 });
+
+test("missing MEMORY.md does not fail context builder", async () => {
+  const emptyDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-ctx-mem-empty-"));
+  const ctx = await buildProjectContext({ cwd: emptyDir });
+  assert.equal(ctx.projectMemorySummary, undefined);
+  await fs.rm(emptyDir, { recursive: true, force: true });
+});
+
+test("MEMORY.md is included in ProjectContext when present", async () => {
+  const memDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-ctx-mem-"));
+  await fs.mkdir(path.join(memDir, ".needle"));
+  await fs.writeFile(path.join(memDir, ".needle", "MEMORY.md"), "# Project Memory\n\nSome important facts.");
+  const ctx = await buildProjectContext({ cwd: memDir });
+  assert.ok(ctx.projectMemorySummary?.includes("Some important facts."));
+  await fs.rm(memDir, { recursive: true, force: true });
+});
+
+test("memory is not included if it only contains empty/default headings", async () => {
+  const memDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-ctx-mem-headings-"));
+  await fs.mkdir(path.join(memDir, ".needle"));
+  await fs.writeFile(path.join(memDir, ".needle", "MEMORY.md"), "# Project Memory\n\n- [ ] Todo item\n\n");
+  const ctx = await buildProjectContext({ cwd: memDir });
+  assert.equal(ctx.projectMemorySummary, undefined);
+  await fs.rm(memDir, { recursive: true, force: true });
+});
+
+test("memory is bounded", async () => {
+  const memDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-ctx-mem-bound-"));
+  await fs.mkdir(path.join(memDir, ".needle"));
+  const longMem = "# Project Memory\n\n" + "A".repeat(10000);
+  await fs.writeFile(path.join(memDir, ".needle", "MEMORY.md"), longMem);
+  
+  const ctx = await buildProjectContext({ cwd: memDir, maxMemoryBytes: 100 });
+  assert.ok(ctx.projectMemorySummary?.includes("... (truncated)"));
+  assert.ok(ctx.projectMemorySummary!.length < 200); // 100 + truncate msg + rounding
+  
+  await fs.rm(memDir, { recursive: true, force: true });
+});
+
+test("memory redacts API keys and sanitizes absolute user paths", async () => {
+  const memDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-ctx-mem-redact-"));
+  await fs.mkdir(path.join(memDir, ".needle"));
+  const userHome = os.homedir();
+  // Use a string that satisfies the "hasContent" check in context-builder
+  await fs.writeFile(path.join(memDir, ".needle", "MEMORY.md"), `Memory with key sk-abc1234567890defghijkl and path ${userHome}/project/file.ts\nSome content`);
+  const ctx = await buildProjectContext({ cwd: memDir });
+  
+  assert.ok(ctx.projectMemorySummary !== undefined, "projectMemorySummary should not be undefined");
+  assert.ok(ctx.projectMemorySummary?.includes("***"), "Should redact API key");
+  assert.ok(!ctx.projectMemorySummary?.includes("sk-abc1234567890defghijkl"), "Original key should not be present");
+  
+  // The logic for sanitizing absolute paths might just replace homedir with ~
+  assert.ok(ctx.projectMemorySummary?.includes("~/project/file.ts") || ctx.projectMemorySummary?.includes("[LOCAL_PATH]"), "Should sanitize path");
+  await fs.rm(memDir, { recursive: true, force: true });
+});
+
+test("memory is included in formatProjectContextForPrompt", async () => {
+  const memDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-ctx-mem-format-"));
+  await fs.mkdir(path.join(memDir, ".needle"));
+  await fs.writeFile(path.join(memDir, ".needle", "MEMORY.md"), "# Project Memory\n\nHelpful context.");
+  const ctx = await buildProjectContext({ cwd: memDir });
+  const text = formatProjectContextForPrompt(ctx);
+  assert.ok(text.includes("--- PROJECT MEMORY ---"));
+  assert.ok(text.includes("Project Memory may be stale."));
+  assert.ok(text.includes("Helpful context."));
+  await fs.rm(memDir, { recursive: true, force: true });
+});

@@ -1,6 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { execSync } from "node:child_process";
+import { redactSessionText } from "./session.js";
+import { sanitizePaths } from "../memory/project-memory.js";
 
 export type PackageManager = "pnpm" | "npm" | "yarn" | "bun" | "unknown";
 
@@ -13,6 +15,7 @@ export interface ProjectContext {
   gitStatus?: string;
   gitDiffSummary?: string;
   readmeSummary?: string;
+  projectMemorySummary?: string;
   packageSummary?: {
     name?: string;
     scripts?: Record<string, string>;
@@ -32,6 +35,7 @@ export interface ContextBuilderOptions {
   maxTreeEntries?: number;
   maxReadmeBytes?: number;
   maxGitBytes?: number;
+  maxMemoryBytes?: number;
 }
 
 const IGNORE_DIRS = new Set([
@@ -191,6 +195,30 @@ export async function buildProjectContext(options: ContextBuilderOptions): Promi
       ctx.projectType.push("unknown");
     }
 
+    // Read Project Memory
+    try {
+      const memoryPath = path.join(cwd, ".needle", "MEMORY.md");
+      const memoryContent = await fs.readFile(memoryPath, "utf8");
+      if (memoryContent.trim().length > 0) {
+        const lines = memoryContent.split('\n');
+        const hasContent = lines.some(line => {
+          const trimmed = line.trim();
+          return trimmed.length > 0 && !trimmed.startsWith('#') && !trimmed.startsWith('- [ ]');
+        });
+        
+        if (hasContent) {
+          const maxMem = options.maxMemoryBytes || 8 * 1024;
+          let boundedMemory = memoryContent;
+          if (boundedMemory.length > maxMem) {
+            boundedMemory = boundedMemory.slice(0, maxMem) + "\n... (truncated)";
+          }
+          ctx.projectMemorySummary = sanitizePaths(redactSessionText(boundedMemory, maxMem + 1024));
+        }
+      }
+    } catch (err) {
+      // ignore memory read errors (file might not exist)
+    }
+
     // Parse README.md
     let readmeName = rootFiles.find(f => f.toLowerCase() === "readme.md");
     if (readmeName) {
@@ -262,6 +290,13 @@ export function formatProjectContextForPrompt(context: ProjectContext): string {
 
   if (context.safetyNotes.length > 0) {
     output += `\nSafety Notes:\n${context.safetyNotes.map(n => `- ${n}`).join("\n")}\n`;
+  }
+
+  if (context.projectMemorySummary) {
+    output += `\n--- PROJECT MEMORY ---\n`;
+    output += `Project Memory may be stale. Use it as helpful context, but prefer current files and explicit user instructions.\n\n`;
+    output += `${context.projectMemorySummary}\n`;
+    output += `----------------------\n`;
   }
 
   return output.trim();
