@@ -1,9 +1,112 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { ProviderRouter, createProviderRouter } from '../../src/providers/router.js';
+import { createOpenRouter } from '../../src/providers/openrouter.js';
 import { NeedleConfigSchema, DEFAULT_PROVIDER_CONFIGS } from '../../src/config/schema.js';
 
 describe('Provider Router', () => {
+  test('OpenRouter adapter handles missing choices cleanly', async () => {
+    const config = NeedleConfigSchema.parse({});
+    const provider = createOpenRouter(config);
+    
+    const originalEnv = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = 'test-key';
+    const originalFetch = global.fetch;
+    
+    try {
+      global.fetch = async () => ({
+        ok: true,
+        text: async () => JSON.stringify({}),
+        json: async () => ({})
+      } as any);
+      
+      await provider.chat({
+        model: 'test-model',
+        messages: [{ role: 'user', content: 'test' }],
+        temperature: 0,
+        maxTokens: 100
+      });
+      assert.fail('Should have thrown an error');
+    } catch (err: any) {
+      assert.ok(err.message.includes('Provider OpenRouter returned an invalid chat response: missing choices.'), `Got: ${err.message}`);
+    } finally {
+      global.fetch = originalFetch;
+      if (originalEnv === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = originalEnv;
+      }
+    }
+  });
+
+  test('OpenRouter adapter handles empty choices cleanly', async () => {
+    const config = NeedleConfigSchema.parse({});
+    const provider = createOpenRouter(config);
+    
+    const originalEnv = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = 'test-key';
+    const originalFetch = global.fetch;
+    
+    try {
+      global.fetch = async () => ({
+        ok: true,
+        text: async () => JSON.stringify({ choices: [] }),
+        json: async () => ({ choices: [] })
+      } as any);
+      
+      await provider.chat({
+        model: 'test-model',
+        messages: [{ role: 'user', content: 'test' }],
+        temperature: 0,
+        maxTokens: 100
+      });
+      assert.fail('Should have thrown an error');
+    } catch (err: any) {
+      assert.ok(err.message.includes('Provider OpenRouter returned an empty chat response.'), `Got: ${err.message}`);
+    } finally {
+      global.fetch = originalFetch;
+      if (originalEnv === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = originalEnv;
+      }
+    }
+  });
+
+  test('OpenRouter adapter handles provider error payload cleanly', async () => {
+    const config = NeedleConfigSchema.parse({});
+    const provider = createOpenRouter(config);
+    
+    const originalEnv = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = 'test-key';
+    const originalFetch = global.fetch;
+    
+    try {
+      global.fetch = async () => ({
+        ok: false,
+        status: 400,
+        text: async () => JSON.stringify({ error: { message: 'Some specific provider error' } }),
+      } as any);
+      
+      await provider.chat({
+        model: 'test-model',
+        messages: [{ role: 'user', content: 'test' }],
+        temperature: 0,
+        maxTokens: 100
+      });
+      assert.fail('Should have thrown an error');
+    } catch (err: any) {
+      assert.ok(err.message.includes('Provider OpenRouter request failed: 400 Some specific provider error'), `Got: ${err.message}`);
+    } finally {
+      global.fetch = originalFetch;
+      if (originalEnv === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = originalEnv;
+      }
+    }
+  });
+
   test('9router and openrouter are separate providers', () => {
     const config = NeedleConfigSchema.parse({});
     const router = createProviderRouter(config);

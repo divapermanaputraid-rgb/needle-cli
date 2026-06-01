@@ -1,6 +1,7 @@
 import type { Provider, ChatRequest, ChatResponse } from './types';
 import type { NeedleConfig } from '../config/schema';
 import { resolveProviderConfig } from '../config/loader';
+import { parseOpenAIResponse } from './openai-parser';
 
 export function createNineRouter(config: NeedleConfig): Provider {
   return {
@@ -38,24 +39,18 @@ export function createNineRouter(config: NeedleConfig): Provider {
           messages: request.messages,
           temperature: request.temperature,
           max_tokens: request.maxTokens,
+          stream: false,
         }),
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`9Router API error: ${res.status} - ${text}`);
-      }
+      const text = await res.text();
+      const parsed = parseOpenAIResponse(text, '9Router', res.status);
 
-      const data = await res.json() as any;
       return {
-        content: data.choices[0].message.content,
+        content: parsed.content,
         model: request.model,
         provider: '9router',
-        usage: data.usage ? {
-          inputTokens: data.usage.prompt_tokens,
-          outputTokens: data.usage.completion_tokens,
-          totalTokens: data.usage.total_tokens,
-        } : undefined,
+        usage: parsed.usage,
       };
     }
   };
