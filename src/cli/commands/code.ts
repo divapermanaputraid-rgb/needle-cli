@@ -48,16 +48,22 @@ export function codeCommand(): Command {
       };
 
       console.log(`Running Agent Loop (Max Iterations: ${maxIter})...`);
-      
-      const result = await runAgentLoop({
-        cwd,
-        task,
-        profile: opts.profile as ModelProfile,
-        maxIterations: maxIter,
-        dryRun: opts.dryRun,
-        providerChat
-      });
-      
+
+      let result;
+      try {
+        result = await runAgentLoop({
+          cwd,
+          task,
+          profile: opts.profile as ModelProfile,
+          maxIterations: maxIter,
+          dryRun: opts.dryRun,
+          providerChat
+        });
+      } catch (err: any) {
+        console.error(`Error: ${err.message}`);
+        process.exit(1);
+      }
+
       console.log(`\n\x1b[36m${"=".repeat(80)}\x1b[0m`);
       console.log(`\x1b[1mTask Result: ${result.ok ? "\x1b[32mSuccess" : "\x1b[31mFailed"}\x1b[0m`);
       console.log(`\x1b[36m${"=".repeat(80)}\x1b[0m`);
