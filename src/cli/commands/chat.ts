@@ -1,7 +1,8 @@
 import { Command } from 'commander';
-import { loadNeedleConfig } from '../../config/loader';
-import { createProviderRouter } from '../../providers/router';
-import type { ModelProfile, ProviderId } from '../../providers/types';
+import { loadNeedleConfig } from '../../config/loader.js';
+import { createProviderRouter } from '../../providers/router.js';
+import type { ModelProfile, ProviderId } from '../../providers/types.js';
+import { startInteractiveShell } from '../../ui/interactive/index.js';
 
 export const chatCommand = new Command('chat')
   .description('Start a chat session or send a single prompt')
@@ -31,9 +32,8 @@ export const chatCommand = new Command('chat')
           console.log(`\n[Usage: In ${response.usage.inputTokens} | Out ${response.usage.outputTokens} | Total ${response.usage.totalTokens}]`);
         }
       } else {
-        // Interactive mode (stub for now, just print a message)
-        console.log('Interactive chat mode is coming in a future sprint.');
-        console.log('For now, use: needle chat "your prompt here"');
+        // Interactive mode
+        await startInteractiveShell();
       }
     } catch (err: any) {
       console.error(err.message);

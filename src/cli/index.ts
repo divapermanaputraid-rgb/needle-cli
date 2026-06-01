@@ -12,6 +12,7 @@ import { toolsCommand } from "./commands/tools.js";
 import { sessionsCommand } from "./commands/sessions.js";
 import { reflectCommand } from "./commands/reflect.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { startInteractiveShell } from "../ui/interactive/index.js";
 
 const program = new Command();
 
@@ -32,4 +33,12 @@ program.addCommand(sessionsCommand());
 program.addCommand(reflectCommand());
 program.addCommand(doctorCommand);
 
-program.parse(process.argv);
+// If no arguments provided, launch the interactive shell
+if (process.argv.length <= 2) {
+  startInteractiveShell().catch((err) => {
+    console.error("Failed to start interactive shell:", err);
+    process.exit(1);
+  });
+} else {
+  program.parse(process.argv);
+}
