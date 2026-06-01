@@ -202,7 +202,7 @@ needle reflect
 
 ## Status & Roadmap
 
-Needle is currently in early active development.
+Needle is currently in beta. It is usable for terminal dogfooding, but APIs and command behavior may change before v1.0.
 
 - [x] Core agent loop
 - [x] Multi-provider support
