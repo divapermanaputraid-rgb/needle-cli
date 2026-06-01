@@ -1,6 +1,7 @@
 # Source maps
 *.map
 src/**/*.map
+dist/**/*.map
 
 # Secrets
 .env
@@ -13,6 +14,9 @@ src/**/*.map
 tests/
 
 # Reference folders
+internal-dev-notes/
+claude-leaks/
+docs/
 
 # Dev config
 .vscode/
