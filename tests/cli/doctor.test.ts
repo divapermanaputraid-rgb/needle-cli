@@ -80,7 +80,7 @@ describe('Doctor Command', () => {
     }
   });
 
-  test('9router missing baseUrl reports provider baseUrl next step, env set shows set without printing value', () => {
+  test('9router missing baseUrl reports provider baseUrl next step (suggests localhost), env set shows set without printing value', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'needle-test-'));
     try {
       const needleDir = path.join(tempDir, '.needle');
@@ -95,12 +95,86 @@ describe('Doctor Command', () => {
 
       // 4. 9router missing baseUrl reports provider baseUrl next step
       assert.ok(output.includes('FAIL active provider baseUrl status: missing'));
-      assert.ok(output.includes('- needle config set providers.9router.baseUrl <url>'));
+      assert.ok(output.includes('- needle config set providers.9router.baseUrl http://localhost:20128/v1'));
 
       // 7. verification
       assert.ok(output.includes('OK env var is set'));
       assert.ok(!output.includes('secret123_never_print_this'), "API key leaked in output!");
       
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test('9router missing key explains gateway key vs upstream provider key', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'needle-test-'));
+    try {
+      const needleDir = path.join(tempDir, '.needle');
+      fs.mkdirSync(needleDir);
+      fs.writeFileSync(path.join(needleDir, 'config.json'), JSON.stringify({
+        defaultProvider: "9router",
+        providers: {
+          "9router": {
+            baseUrl: "http://43.129.58.138:20128/v1",
+            apiKeyEnv: "NINE_ROUTER_API_KEY"
+          }
+        }
+      }));
+
+      const env = { NINE_ROUTER_API_KEY: "" };
+      const output = runDoctor(tempDir, env);
+
+      assert.ok(output.includes('NINE_ROUTER_API_KEY is the 9Router gateway/API access key, not an upstream provider key'), "Missing correct remote key message");
+      assert.ok(output.includes('- export NINE_ROUTER_API_KEY="your_9router_gateway_key"'));
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test('remote 9router without key is FAIL', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'needle-test-'));
+    try {
+      const needleDir = path.join(tempDir, '.needle');
+      fs.mkdirSync(needleDir);
+      fs.writeFileSync(path.join(needleDir, 'config.json'), JSON.stringify({
+        defaultProvider: "9router",
+        providers: {
+          "9router": {
+            baseUrl: "http://43.129.58.138:20128/v1"
+          }
+        }
+      }));
+
+      const env = { NINE_ROUTER_API_KEY: "" };
+      const output = runDoctor(tempDir, env);
+
+      assert.ok(output.includes('Overall: FAIL'));
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test('local 9router without key is WARN', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'needle-test-'));
+    try {
+      const needleDir = path.join(tempDir, '.needle');
+      fs.mkdirSync(needleDir);
+      fs.writeFileSync(path.join(needleDir, 'config.json'), JSON.stringify({
+        defaultProvider: "9router",
+        providers: {
+          "9router": {
+            baseUrl: "http://localhost:20128/v1",
+            apiKeyEnv: "NINE_ROUTER_API_KEY"
+          }
+        }
+      }));
+
+      const env = { NINE_ROUTER_API_KEY: "" };
+      const output = runDoctor(tempDir, env);
+
+      assert.ok(output.includes('local 9Router may allow no-auth depending on your gateway config'), "Missing correct local key message");
+      // Note: "WARN" doesn't force overall status to FAIL unless something else failed.
+      // But we just verify the message is present.
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }

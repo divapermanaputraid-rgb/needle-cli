@@ -81,7 +81,7 @@ export const doctorCommand = new Command("doctor")
           if (!providerConfig.baseUrl) {
             console.log(`FAIL active provider baseUrl status: missing`);
             updateStatus("FAIL");
-            nextSteps.push(`needle config set providers.9router.baseUrl <url>`);
+            nextSteps.push(`needle config set providers.9router.baseUrl http://localhost:20128/v1`);
           } else {
             console.log(`OK active provider baseUrl status: ${providerConfig.baseUrl}`);
           }
@@ -112,9 +112,21 @@ export const doctorCommand = new Command("doctor")
         if (process.env[envName]) {
           console.log(`OK env var is set`);
         } else {
-          console.log(`FAIL env var is missing`);
-          updateStatus("FAIL");
-          nextSteps.push(`export ${envName}="your_key"`);
+          if (activeProviderId === "9router") {
+            const isLocal = providerConfig.baseUrl && providerConfig.baseUrl.includes("localhost");
+            if (isLocal) {
+              console.log(`WARN env var is missing (local 9Router may allow no-auth depending on your gateway config)`);
+              updateStatus("WARN");
+            } else {
+              console.log(`FAIL env var is missing (${envName} is the 9Router gateway/API access key, not an upstream provider key)`);
+              updateStatus("FAIL");
+              nextSteps.push(`export ${envName}="your_9router_gateway_key"`);
+            }
+          } else {
+            console.log(`FAIL env var is missing`);
+            updateStatus("FAIL");
+            nextSteps.push(`export ${envName}="your_key"`);
+          }
         }
       } catch (e: any) {
         console.log(`FAIL ${e.message}`);
