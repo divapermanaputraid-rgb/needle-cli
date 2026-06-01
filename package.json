@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "type": "module",
   "bin": {
-    "needle": "./dist/index.js"
+    "needle": "dist/index.js"
   },
   "files": [
     "dist",
@@ -39,7 +39,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/needle-ai/needle-cli.git"
+    "url": "git+https://github.com/needle-ai/needle-cli.git"
   },
   "engines": {
     "node": ">=18"
