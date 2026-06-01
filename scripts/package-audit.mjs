@@ -15,6 +15,8 @@ const FORBIDDEN_FILE_PATTERNS = [
   /claude-leaks/,
   /internal-dev-notes/,
   /^package\/src\//,
+  /docs\//,
+  /^\.needle\//,
 ];
 
 const FORBIDDEN_STRINGS = [
@@ -23,11 +25,19 @@ const FORBIDDEN_STRINGS = [
   "source leak",
   "leaked source",
   "based on leaked",
+  "fungicode",
+  "fungi-cli",
+  "Fungi CLI",
+  ".fungi",
 ];
 
 const FORBIDDEN_REGEX = [
-  /sk-[a-zA-Z0-9]{32,}/, // Typical API key pattern
-  /(["']?)(api_key|secret_key|private_key)\1\s*:\s*["'][^"']+["']/i,
+  /(?<!NINE_ROUTER_)(?<!OPENROUTER_)sk-[a-zA-Z0-9]{32,}/, // Typical API key pattern, excluding env var names
+  /(?<!NINE_ROUTER_)(?<!OPENROUTER_)(["']?)(api_key|secret_key|private_key)\1\s*:\s*["'][^"']+["']/i,
+  /sk-or-v1-[a-zA-Z0-9]{60,}/,
+  /Bearer\s+[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+/,
+  /BEGIN .*PRIVATE KEY/,
+  /(?<!\.)fungi\b/i
 ];
 
 let failed = false;
