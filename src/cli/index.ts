@@ -11,6 +11,7 @@ import { modelsCommand } from "./commands/models.js";
 import { toolsCommand } from "./commands/tools.js";
 import { sessionsCommand } from "./commands/sessions.js";
 import { reflectCommand } from "./commands/reflect.js";
+import { doctorCommand } from "./commands/doctor.js";
 
 const program = new Command();
 
@@ -29,5 +30,6 @@ program.addCommand(modelsCommand);
 program.addCommand(toolsCommand);
 program.addCommand(sessionsCommand());
 program.addCommand(reflectCommand());
+program.addCommand(doctorCommand);
 
 program.parse(process.argv);
