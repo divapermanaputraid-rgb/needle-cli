@@ -1,7 +1,11 @@
 import { ShellState } from './shell-state.js';
 import { renderBrandHeader } from './render-brand.js';
+import * as readline from 'node:readline';
+import { runSettingsWizard, providerSettings, modelSettings } from './settings-wizard.js';
+import { handleInteractiveChat } from './interactive-chat.js';
+import type { ChatSession } from './chat-session.js';
 
-export function handleSlashCommand(input: string, state: ShellState): boolean {
+export async function handleSlashCommand(input: string, state: ShellState, chatSession: ChatSession, rl?: readline.Interface): Promise<boolean> {
   const parts = input.trim().split(/\s+/);
   const command = parts[0];
 
@@ -12,9 +16,19 @@ export function handleSlashCommand(input: string, state: ShellState): boolean {
   const yellow = '\x1b[33m';
 
   switch (command) {
+    case '/chat':
+      const chatInput = parts.slice(1).join(' ');
+      if (!chatInput) {
+        console.log(`\n${yellow}Missing message. Usage: /chat <message>${reset}\n`);
+      } else {
+        await handleInteractiveChat(chatInput, state, chatSession);
+      }
+      return true;
+
     case '/help':
       console.log(`
 ${bold}Available Commands:${reset}
+  ${cyan}/chat${reset}       Send a plain chat message (or just type without a slash)
   ${cyan}/help${reset}       Print all available slash commands
   ${cyan}/status${reset}     Show current configuration and environment status
   ${cyan}/models${reset}     List configured providers and model profiles
@@ -64,29 +78,59 @@ ${bold}Available Commands:${reset}
       }
       return true;
 
-    case '/provider':
-      if (!state.config) {
-        console.log(`\n${yellow}Config missing. Run: needle init${reset}\n`);
-        return true;
-      }
-      if (parts.length > 1) {
-        console.log(`\n${dim}To set provider permanently, run: ${cyan}needle config set provider ${parts[1]}${reset}\n`);
+    case '/settings':
+      if (rl) {
+        rl.pause();
+        runSettingsWizard(rl, state).then(() => rl.resume());
       } else {
-        console.log(`\n  Current Provider: ${state.provider || 'None'}`);
-        console.log(`  ${dim}Tip: Set with: ${cyan}/provider <name>${reset}\n`);
+        console.log(`\n${yellow}Settings wizard requires interactive shell.${reset}\n`);
+      }
+      return true;
+
+    case '/connect':
+      if (rl) {
+        rl.pause();
+        if (state.config) {
+          providerSettings(rl, state, state.config).then(() => rl.resume());
+        } else {
+          runSettingsWizard(rl, state).then(() => rl.resume()); // Drop to main wizard to init
+        }
+      } else {
+        console.log(`\n${yellow}Interactive shell required.${reset}\n`);
+      }
+      return true;
+
+    case '/provider':
+      if (parts.length > 1) {
+         if (!state.config) {
+            console.log(`\n${yellow}Config missing. Run: needle init${reset}\n`);
+            return true;
+         }
+        console.log(`\n${dim}To set provider permanently, run: ${cyan}needle config set provider ${parts[1]}${reset}\n`);
+      } else if (rl) {
+        rl.pause();
+        if (state.config) {
+          providerSettings(rl, state, state.config).then(() => rl.resume());
+        } else {
+          runSettingsWizard(rl, state).then(() => rl.resume());
+        }
       }
       return true;
 
     case '/model':
-      if (!state.config) {
-        console.log(`\n${yellow}Config missing. Run: needle init${reset}\n`);
-        return true;
-      }
       if (parts.length > 2) {
+         if (!state.config) {
+            console.log(`\n${yellow}Config missing. Run: needle init${reset}\n`);
+            return true;
+         }
         console.log(`\n${dim}To set model permanently, run: ${cyan}needle config set model.${parts[1]} ${parts[2]}${reset}\n`);
-      } else {
-        console.log(`\n  Current Profile: ${state.profile || 'None'}`);
-        console.log(`  ${dim}Tip: Set with: ${cyan}/model <profile> <modelId>${reset}\n`);
+      } else if (rl) {
+        rl.pause();
+        if (state.config) {
+          modelSettings(rl, state, state.config).then(() => rl.resume());
+        } else {
+           runSettingsWizard(rl, state).then(() => rl.resume());
+        }
       }
       return true;
 

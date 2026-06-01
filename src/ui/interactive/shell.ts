@@ -3,6 +3,9 @@ import { loadNeedleConfig } from '../../config/loader.js';
 import { createInitialShellState } from './shell-state.js';
 import { renderBrandHeader } from './render-brand.js';
 import { handleSlashCommand } from './slash-commands.js';
+import { runSettingsWizard, providerSettings, modelSettings } from './settings-wizard.js';
+import { ChatSession } from './chat-session.js';
+import { handleInteractiveChat } from './interactive-chat.js';
 
 export async function startInteractiveShell(): Promise<void> {
   let config;
@@ -20,6 +23,8 @@ export async function startInteractiveShell(): Promise<void> {
     prompt: '> '
   });
 
+  const chatSession = new ChatSession();
+
   console.clear();
   renderBrandHeader();
 
@@ -36,7 +41,7 @@ export async function startInteractiveShell(): Promise<void> {
 
   rl.prompt();
 
-  rl.on('line', (line) => {
+  rl.on('line', async (line) => {
     const input = line.trim();
     if (!input) {
       rl.prompt();
@@ -44,9 +49,9 @@ export async function startInteractiveShell(): Promise<void> {
     }
 
     if (input.startsWith('/')) {
-      handleSlashCommand(input, state);
+      await handleSlashCommand(input, state, chatSession, rl);
     } else {
-      console.log(`\n${dim}Chat mode MVP: use /plan <task> or /code <task> for agent workflows.${reset}\n`);
+      await handleInteractiveChat(input, state, chatSession);
     }
     rl.prompt();
   }).on('close', () => {
