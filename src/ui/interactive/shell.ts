@@ -3,7 +3,7 @@ import { loadNeedleConfig } from '../../config/loader.js';
 import { createInitialShellState } from './shell-state.js';
 import { renderBrandHeader } from './render-brand.js';
 import { handleSlashCommand } from './slash-commands.js';
-import { runSettingsWizard, providerSettings, modelSettings } from './settings-wizard.js';
+import { runSettingsWizard } from './settings-wizard.js';
 import { ChatSession } from './chat-session.js';
 import { handleInteractiveChat } from './interactive-chat.js';
 
@@ -51,7 +51,7 @@ export async function startInteractiveShell(): Promise<void> {
     if (input.startsWith('/')) {
       await handleSlashCommand(input, state, chatSession, rl);
     } else {
-      await handleInteractiveChat(input, state, chatSession);
+      await handleInteractiveChat(input, state, chatSession, rl);
     }
     rl.prompt();
   }).on('close', () => {

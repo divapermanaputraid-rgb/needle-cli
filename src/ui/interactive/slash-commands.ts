@@ -1,7 +1,8 @@
 import { ShellState } from './shell-state.js';
 import { renderBrandHeader } from './render-brand.js';
 import * as readline from 'node:readline';
-import { runSettingsWizard, providerSettings, modelSettings } from './settings-wizard.js';
+import { runSettingsWizard } from './settings-wizard.js';
+import { saveNeedleConfig } from '../../config/loader.js';
 import { handleInteractiveChat } from './interactive-chat.js';
 import type { ChatSession } from './chat-session.js';
 
@@ -28,16 +29,12 @@ export async function handleSlashCommand(input: string, state: ShellState, chatS
     case '/help':
       console.log(`
 ${bold}Available Commands:${reset}
-  ${cyan}/chat${reset}       Send a plain chat message (or just type without a slash)
   ${cyan}/help${reset}       Print all available slash commands
   ${cyan}/status${reset}     Show current configuration and environment status
   ${cyan}/models${reset}     List configured providers and model profiles
   ${cyan}/provider${reset}   Show or set active provider (e.g. /provider openrouter)
   ${cyan}/model${reset}      Show or set active model profile (e.g. /model fast anthropic/claude-3-haiku)
   ${cyan}/plan${reset}       Run plan workflow (e.g. /plan inspect project)
-  ${cyan}/code${reset}       Run code workflow (e.g. /code fix lint errors)
-  ${cyan}/review${reset}     Run review workflow
-  ${cyan}/reflect${reset}    Run reflect workflow
   ${cyan}/sessions${reset}   Show recent sessions
   ${cyan}/doctor${reset}     Run system checks
   ${cyan}/clear${reset}      Clear terminal and show header
@@ -79,6 +76,7 @@ ${bold}Available Commands:${reset}
       return true;
 
     case '/settings':
+    case '/connect':
       if (rl) {
         rl.pause();
         runSettingsWizard(rl, state).then(() => rl.resume());
@@ -87,56 +85,81 @@ ${bold}Available Commands:${reset}
       }
       return true;
 
-    case '/connect':
-      if (rl) {
-        rl.pause();
-        if (state.config) {
-          providerSettings(rl, state, state.config).then(() => rl.resume());
-        } else {
-          runSettingsWizard(rl, state).then(() => rl.resume()); // Drop to main wizard to init
-        }
-      } else {
-        console.log(`\n${yellow}Interactive shell required.${reset}\n`);
-      }
-      return true;
-
     case '/provider':
+      if (!state.config) {
+        console.log(`\n${yellow}Config missing. Run /settings.${reset}\n`);
+        return true;
+      }
+      
       if (parts.length > 1) {
-         if (!state.config) {
-            console.log(`\n${yellow}Config missing. Run: needle init${reset}\n`);
-            return true;
-         }
-        console.log(`\n${dim}To set provider permanently, run: ${cyan}needle config set provider ${parts[1]}${reset}\n`);
-      } else if (rl) {
-        rl.pause();
-        if (state.config) {
-          providerSettings(rl, state, state.config).then(() => rl.resume());
-        } else {
-          runSettingsWizard(rl, state).then(() => rl.resume());
+        const newProvider = parts[1];
+        const validProviders = ['9router', 'openrouter', 'openai-compatible', 'gemini', 'deepseek'];
+        
+        if (!validProviders.includes(newProvider)) {
+          console.log(`\n${yellow}Invalid provider. Valid options: ${validProviders.join(', ')}${reset}\n`);
+          return true;
         }
+        
+        state.config.defaultProvider = newProvider;
+        state.provider = newProvider;
+        saveNeedleConfig(state.cwd, state.config).then(() => {
+          console.log(`\n${cyan}Provider set to ${newProvider}.${reset}\n`);
+        });
+      } else {
+        console.log(`\nCurrent provider: ${state.provider || state.config.defaultProvider || 'None'}`);
+        console.log(`\nUsage:`);
+        console.log(`/provider <provider>`);
+        console.log(`/settings\n`);
       }
       return true;
 
     case '/model':
-      if (parts.length > 2) {
-         if (!state.config) {
-            console.log(`\n${yellow}Config missing. Run: needle init${reset}\n`);
-            return true;
-         }
-        console.log(`\n${dim}To set model permanently, run: ${cyan}needle config set model.${parts[1]} ${parts[2]}${reset}\n`);
-      } else if (rl) {
-        rl.pause();
-        if (state.config) {
-          modelSettings(rl, state, state.config).then(() => rl.resume());
-        } else {
-           runSettingsWizard(rl, state).then(() => rl.resume());
+      if (!state.config) {
+        console.log(`\n${yellow}Config missing. Run /settings.${reset}\n`);
+        return true;
+      }
+
+      if (parts.length > 1) {
+        const action = parts[1]; // 'all' or a profile name
+        const modelName = parts[2];
+        const profiles = ['fast', 'smart', 'coder', 'planner', 'reviewer'] as const;
+
+        if (!modelName) {
+           console.log(`\n${yellow}Missing model name. Usage: /model <profile|all> <model>${reset}\n`);
+           return true;
         }
+
+        if (action === 'all') {
+           for (const p of profiles) {
+             state.config.models[p] = modelName;
+           }
+           saveNeedleConfig(state.cwd, state.config).then(() => {
+             console.log(`\n${cyan}Set all profiles to ${modelName}.${reset}\n`);
+           });
+        } else if (profiles.includes(action as any)) {
+           state.config.models[action as keyof typeof state.config.models] = modelName;
+           saveNeedleConfig(state.cwd, state.config).then(() => {
+             console.log(`\n${cyan}Set ${action} to ${modelName}.${reset}\n`);
+           });
+        } else {
+           console.log(`\n${yellow}Invalid profile. Valid profiles: ${profiles.join(', ')}${reset}\n`);
+        }
+      } else {
+        console.log(`\nCurrent model profiles:`);
+        const profiles = ['fast', 'smart', 'coder', 'planner', 'reviewer'] as const;
+        for (const p of profiles) {
+          console.log(`${p.padEnd(8)} -> ${state.config.models[p] || '<missing>'}`);
+        }
+        console.log(`\nUsage:`);
+        console.log(`/model all <model>`);
+        console.log(`/model <profile> <model>`);
+        console.log(`/settings\n`);
       }
       return true;
 
     case '/plan':
       if (parts.length > 1) {
-        console.log(`\n${dim}Running plan mode in v1 will be integrated. For now, exit and run: ${cyan}needle plan "${parts.slice(1).join(' ')}"${reset}\n`);
+        await handleInteractiveChat(input, state, chatSession, rl);
       } else {
         console.log(`\n${yellow}Missing task. Usage: /plan <task>${reset}\n`);
       }
@@ -144,7 +167,7 @@ ${bold}Available Commands:${reset}
 
     case '/code':
       if (parts.length > 1) {
-        console.log(`\n${dim}Running code mode in v1 will be integrated. For now, exit and run: ${cyan}needle code "${parts.slice(1).join(' ')}"${reset}\n`);
+        await handleInteractiveChat(input, state, chatSession, rl);
       } else {
         console.log(`\n${yellow}Missing task. Usage: /code <task>${reset}\n`);
       }
