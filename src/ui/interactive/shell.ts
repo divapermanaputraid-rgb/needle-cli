@@ -26,18 +26,16 @@ export async function startInteractiveShell(): Promise<void> {
   const chatSession = new ChatSession();
 
   console.clear();
-  renderBrandHeader();
+  renderBrandHeader(state);
 
-  const cyan = '\x1b[36m';
   const dim = '\x1b[2m';
   const reset = '\x1b[0m';
-  const yellow = '\x1b[33m';
 
-  console.log(`${dim}CWD: ${state.cwd}${reset}`);
-  if (state.provider) {
-    console.log(`${dim}Provider: ${cyan}${state.provider}${reset} | Profile: ${cyan}${state.profile || 'default'}${reset}`);
+  if (state.config && state.provider) {
+    console.log(`${dim}Type naturally, or use /plan for planning. /help for commands.${reset}\n`);
+  } else {
+    console.log(`${dim}Type /settings to connect a provider. /help for commands.${reset}\n`);
   }
-  console.log(`${dim}Type /help for commands.${reset}\n`);
 
   rl.prompt();
 

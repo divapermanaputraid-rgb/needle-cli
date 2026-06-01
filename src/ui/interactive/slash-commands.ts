@@ -49,7 +49,7 @@ ${bold}Available Commands:${reset}
 
     case '/clear':
       console.clear();
-      renderBrandHeader();
+      renderBrandHeader(state);
       return true;
 
     case '/status':
