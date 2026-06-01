@@ -49,9 +49,28 @@ npx needle-cli init
 Needle supports multiple AI providers. Configure them via environment variables or `.env`.
 
 ### 9Router
+
+9Router acts as a gateway. The 9Router dashboard manages your upstream provider auth. Needle does not need your upstream provider keys directly.
+
+Use your 9Router gateway/endpoint API key for `NINE_ROUTER_API_KEY`. If running a local trusted 9Router, auth may be disabled depending on your gateway config.
+
+Base URL examples:
+* local: `http://localhost:20128/v1`
+* remote: `http://your-host:20128/v1`
+
+Model examples:
+* `low`
+* `medium`
+* `high`
+* `free`
+(or any combo name copied from the 9Router dashboard)
+
+Example Setup:
 ```bash
-export NINE_ROUTER_API_KEY="your_9router_key"
-export NINE_ROUTER_BASE_URL="https://api.9router.com/v1" # Optional
+needle config set provider 9router
+needle config set providers.9router.baseUrl http://localhost:20128/v1
+needle config set model.coder low
+export NINE_ROUTER_API_KEY="your_9router_gateway_key"
 ```
 
 ### OpenRouter
