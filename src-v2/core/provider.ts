@@ -69,6 +69,22 @@ export class Provider extends Effect.Service<Provider>()("@needle/Provider", {
           } as ChatResponse;
         }
 
+        if (content.toLowerCase().includes("safe task")) {
+          return {
+            content: null,
+            tool_calls: [
+              {
+                id: "call_yolo",
+                type: "function",
+                function: {
+                  name: "shell",
+                  arguments: JSON.stringify({ command: "echo 'Running safe YOLO command!'" }),
+                },
+              },
+            ],
+          } as ChatResponse;
+        }
+
         return {
           content: "I'm not sure how to respond to that in mock mode.",
           tool_calls: undefined,

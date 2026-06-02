@@ -83,6 +83,17 @@ const program = Effect.gen(function* () {
       }
     }
   }
+
+  // 6. Test Scenario: "safe task" (YOLO Test)
+  yield* logger.log("\nScenario 3: YOLO TEST - 'safe task'...");
+  const resp3 = yield* provider.chat([{ role: "user", content: "safe task" }], availableTools);
+  
+  if (resp3.tool_calls) {
+    for (const call of resp3.tool_calls) {
+      const result = yield* toolRegistry.execute(call.function.name, call.function.arguments);
+      yield* logger.log(`  Result: ${result}`);
+    }
+  }
 });
 
 // Setup unified Live Layer

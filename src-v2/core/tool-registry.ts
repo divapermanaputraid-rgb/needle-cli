@@ -1,5 +1,7 @@
 import { Effect } from "effect";
 import { NativeTool } from "./provider-types.js";
+import { ConfigProvider } from "./config.js";
+import { Logger } from "./logger.js";
 
 export type ToolHandler = (args: any) => Effect.Effect<string, Error>;
 
@@ -18,9 +20,18 @@ export class ToolRegistry extends Effect.Service<ToolRegistry>()("@needle/ToolRe
 
       execute: (name: string, args: string) =>
         Effect.gen(function* () {
+          const config = yield* ConfigProvider;
+          const logger = yield* Logger;
+          
           const entry = tools.get(name);
           if (!entry) {
             return yield* Effect.fail(new Error(`Tool '${name}' not found in registry.`));
+          }
+
+          if (config.isYoloMode) {
+            yield* logger.log(`[YOLO MODE] Auto-executing tool '${name}'...`);
+          } else {
+            yield* logger.log(`[Manual Mode] Waiting for user approval for tool '${name}'... [Auto-approving for MVP]`);
           }
 
           const parsedArgs = yield* Effect.try({
