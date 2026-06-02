@@ -121,6 +121,73 @@ test("agent loop handles unknown tool", async () => {
   assert.equal(result.toolCalls[0].ok, false);
 });
 
+test("agent loop rejects pseudo tool text and issues retry", async () => {
+  let callCount = 0;
+  const providerChat = async (messages: ChatMessage[]): Promise<ChatResponse> => {
+    callCount++;
+    if (callCount === 1) {
+      return {
+        content: "I will use /code file.ts to read the file.",
+        model: "test",
+        provider: "test-provider"
+      };
+    }
+    
+    const lastMsg = messages[messages.length - 1];
+    assert.match(lastMsg.content, /pseudo tool text/);
+    
+    return {
+      content: JSON.stringify({ type: "final", summary: "Done" }),
+      model: "test",
+      provider: "test-provider"
+    };
+  };
+
+  const result = await runAgentLoop({
+    cwd: process.cwd(),
+    task: "test",
+    providerChat,
+    toolRegistry: new ToolRegistry()
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.iterations, 2);
+});
+
+test("agent loop rejects final answer that claims success without verification", async () => {
+  let callCount = 0;
+  const providerChat = async (messages: ChatMessage[]): Promise<ChatResponse> => {
+    callCount++;
+    if (callCount === 1) {
+      return {
+        content: JSON.stringify({ type: "final", summary: "I successfully created the file" }),
+        model: "test",
+        provider: "test-provider"
+      };
+    }
+    
+    const lastMsg = messages[messages.length - 1];
+    assert.match(lastMsg.content, /Your summary claims changes.*no successful tool calls/);
+    
+    return {
+      content: JSON.stringify({ type: "final", summary: "I failed to create the file" }),
+      model: "test",
+      provider: "test-provider"
+    };
+  };
+
+  const result = await runAgentLoop({
+    cwd: process.cwd(),
+    task: "test",
+    providerChat,
+    toolRegistry: new ToolRegistry()
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.iterations, 2);
+  assert.equal(result.summary, "I failed to create the file");
+});
+
 test("agent loop handles invalid JSON and continues", async () => {
   let callCount = 0;
   const providerChat = async (messages: ChatMessage[]): Promise<ChatResponse> => {
@@ -154,7 +221,7 @@ test("agent loop handles invalid JSON and continues", async () => {
   assert.equal(result.iterations, 2);
 });
 
-test("agent loop stops at max iterations", async () => {
+test("agent loop stops at max iterations and reports honest failure when no tools executed", async () => {
   const providerChat = async (messages: ChatMessage[]): Promise<ChatResponse> => {
     return {
       content: "not json",
@@ -173,7 +240,7 @@ test("agent loop stops at max iterations", async () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.iterations, 2);
-  assert.match(result.summary, /Reached maximum iterations/);
+  assert.match(result.summary, /The coding agent did not execute any tools/);
 });
 
 test("agent loop handles ok:false tool result", async () => {

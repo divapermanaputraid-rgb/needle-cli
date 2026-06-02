@@ -100,7 +100,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     const response = await options.providerChat(messages);
     messages.push({ role: "assistant", content: response.content });
     
-    const hasPseudoCommands = response.content.includes("/") || response.content.includes("@");
+    const hasPseudoCommands = /(?:\/code|\/shell|file\.write|```bash|```sh|file\.read|file\.edit)/i.test(response.content);
     let parsedArray: any[] = [];
     try {
       // Find all JSON blocks in the response. Model might mix text and JSON.
@@ -126,7 +126,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
       if (hasPseudoCommands) {
         messages.push({
           role: "user",
-          content: "The model returned pseudo tool text instead of a valid tool call. Retrying with tool protocol."
+          content: "The previous response contained pseudo tool text instead of a valid Needle tool call. Use the structured tool protocol."
         });
         continue;
       }
@@ -143,6 +143,18 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     let didBreak = false;
     for (const parsed of parsedArray) {
       if (parsed.type === "final") {
+        const summaryLower = (parsed.summary || "").toLowerCase();
+        const claimsSuccess = /created|edited|changed|executed|passed|successfully/i.test(summaryLower);
+        const hasSuccessfulTools = toolCalls.some(t => t.ok);
+        
+        if (claimsSuccess && !hasSuccessfulTools) {
+          messages.push({
+            role: "user",
+            content: "Error: Your summary claims changes or executions, but no successful tool calls were verified. You must execute actual tools before claiming success."
+          });
+          break;
+        }
+
         success = true;
         finalSummary = parsed.summary || "Task completed.";
         didBreak = true;
@@ -212,7 +224,11 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
 
   if (iterations >= maxIterations && !success) {
     success = false;
-    finalSummary = `Task failed: Reached maximum iterations (${maxIterations}).`;
+    if (toolCalls.length === 0) {
+      finalSummary = "The coding agent did not execute any tools. No files were changed.";
+    } else {
+      finalSummary = `Task failed: Reached maximum iterations (${maxIterations}).`;
+    }
   }
 
   const record: SessionRecord = {
