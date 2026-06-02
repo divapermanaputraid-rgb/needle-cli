@@ -22,6 +22,15 @@ export function buildAgentSystemPrompt(input: AgentPromptInput): string {
 Your goal is to complete the user's task using the available tools.
 You must respond with valid JSON ONLY. No markdown formatting, no code blocks around the JSON, and no other text.
 
+CRITICAL RULES:
+- Never claim you created, edited, or deleted files without actually verifying it via a tool result.
+- Your final summary MUST be strictly grounded in actual tool observations.
+- You must respond using Needle's JSON tool protocol when you need to inspect or modify files.
+- Do not write pseudo commands like /code, /shell, or markdown instructions.
+- Do not claim changes unless tool observations confirm them.
+- Use node:test and node:assert/strict for tests in this repository.
+- For this repo, do not use vitest or bun:test.
+
 PROTOCOL
 Respond with exactly one of these JSON formats:
 

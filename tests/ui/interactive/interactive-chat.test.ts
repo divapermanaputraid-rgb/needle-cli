@@ -147,9 +147,9 @@ test('interactive chat asks confirmation for code intent and runs if accepted', 
   let logged = '';
   console.log = (msg) => { logged += msg + '\n'; };
 
-  // mock core agent loop internally, since we don't have api key it will fail anyway, but it SHOULD log "Running code workflow..."
+  // mock core agent loop internally, since we don't have api key it will fail anyway, but it SHOULD log "Running coding agent..."
   await handleInteractiveChat('buat file test.md', state, session, rl);
   console.log = oldLog;
 
-  assert.match(logged, /Running code workflow/);
+  assert.match(logged, /Running coding agent/);
 });

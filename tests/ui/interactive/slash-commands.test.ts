@@ -62,10 +62,10 @@ describe('Slash Commands', () => {
     const state: ShellState = { cwd: tmpCwd, history: [] };
     const mockSession = {} as any;
     const handled = await handleSlashCommand('review this code', state, mockSession);
-    assert.strictEqual(handled, false); // It should not handle it as a slash command
+    assert.strictEqual(handled, false);
     
     const handledReviewCmd = await handleSlashCommand('/review', state, mockSession);
-    assert.strictEqual(handledReviewCmd, true); // It should handle explicit /review
+    assert.strictEqual(handledReviewCmd, true);
   });
   
   it('handles /help', async () => {
@@ -73,5 +73,22 @@ describe('Slash Commands', () => {
     const mockSession = {} as any;
     const handled = await handleSlashCommand('/help', state, mockSession);
     assert.strictEqual(handled, true);
+  });
+
+  it('handles /pwd', async () => {
+    const state: ShellState = { cwd: tmpCwd, history: [] };
+    const mockSession = {} as any;
+    
+    // Capture console.log
+    const originalLog = console.log;
+    let logOutput = '';
+    console.log = (msg: string) => { logOutput += msg + '\n'; };
+    
+    const handled = await handleSlashCommand('/pwd', state, mockSession);
+    console.log = originalLog;
+    
+    assert.strictEqual(handled, true);
+    assert.ok(logOutput.includes('Current Working Directory:'));
+    assert.ok(logOutput.includes(tmpCwd));
   });
 });

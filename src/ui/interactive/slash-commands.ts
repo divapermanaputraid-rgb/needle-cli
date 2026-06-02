@@ -7,6 +7,10 @@ import { handleInteractiveChat } from './interactive-chat.js';
 import type { ChatSession } from './chat-session.js';
 
 export async function handleSlashCommand(input: string, state: ShellState, chatSession: ChatSession, rl?: readline.Interface): Promise<boolean> {
+  if (!input.trim().startsWith('/')) {
+    return false;
+  }
+
   const parts = input.trim().split(/\s+/);
   const command = parts[0];
 
@@ -50,6 +54,11 @@ ${bold}Available Commands:${reset}
     case '/clear':
       console.clear();
       renderBrandHeader(state);
+      return true;
+
+    case '/pwd':
+      console.log(`\n${cyan}Current Working Directory:${reset}`);
+      console.log(`${state.cwd}\n`);
       return true;
 
     case '/status':
