@@ -170,7 +170,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
             toolName,
             input: typeof toolInput === 'object' && toolInput ? toolInput as Record<string, unknown> : {},
             ok: result.ok,
-            output: result.output,
+            output: result.output ?? String(result.result ?? result.error ?? ""),
             metadata: result.metadata,
             timestamp: Date.now()
           };
@@ -179,9 +179,9 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
             sessionState.toolObservations.record(obsRecord);
           }
 
-          let observation = result.output;
+          let observation = result.output ?? String(result.result ?? result.error ?? "");
           if (!result.ok) {
-             observation = `Tool failed: ${result.output}`;
+             observation = `Tool failed: ${observation}`;
           }
 
           messages.push({

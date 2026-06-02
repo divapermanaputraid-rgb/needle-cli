@@ -17,7 +17,7 @@ describe("file.edit tool", () => {
 
     const result = await fileEditTool.execute(
       { path: filePath, search: "world", replace: "universe" },
-      dummyContext
+      { cwd: tmpDir } as ToolContext
     );
 
     assert.strictEqual(result.ok, true);
@@ -34,6 +34,6 @@ describe("file.edit tool", () => {
       dummyContext
     );
     assert.ok(validation);
-    assert.match(validation.output, /protected/i);
+    assert.match(validation.output, /sensitive file/i);
   });
 });

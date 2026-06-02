@@ -1,4 +1,4 @@
-export type ToolRiskLevel = "low" | "medium" | "high";
+export type ToolRiskLevel = "low" | "medium" | "high" | "blocked";
 export type RiskLevel = ToolRiskLevel;
 
 export type Tool<Input = any> = ToolDefinition<Input>;
@@ -10,16 +10,27 @@ export interface ToolContext {
 
 export interface ToolResult {
   ok: boolean;
-  output: string;
-  metadata?: Record<string, unknown>;
+  tool?: string;
+  output?: string;
+  result?: unknown;
+  error?: string;
+  metadata?: {
+    paths?: string[];
+    risk?: string;
+    exitCode?: number;
+    [key: string]: any;
+  };
 }
 
 export interface ToolDefinition<Input = any> {
   name: string;
   description: string;
   riskLevel: ToolRiskLevel;
-  isReadOnly: boolean;
-  inputSchemaDescription: string;
+  tags?: string[];
+  permissionRequirement?: string;
+  isReadOnly?: boolean;
+  inputSchemaDescription?: string;
+  inputSchema?: unknown;
   validate?(input: Input, context: ToolContext): ToolResult | null;
   execute(input: Input, context: ToolContext): Promise<ToolResult>;
 }
