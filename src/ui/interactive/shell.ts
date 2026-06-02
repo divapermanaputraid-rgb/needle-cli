@@ -5,7 +5,7 @@ import { renderBrandHeader } from './render-brand.js';
 import { handleSlashCommand } from './slash-commands.js';
 import { runSettingsWizard } from './settings-wizard.js';
 import { ChatSession } from './chat-session.js';
-import { handleInteractiveChat } from './interactive-chat.js';
+import { RuntimeController } from './runtime-controller.js';
 
 export async function startInteractiveShell(): Promise<void> {
   let config;
@@ -24,6 +24,7 @@ export async function startInteractiveShell(): Promise<void> {
   });
 
   const chatSession = new ChatSession();
+  const runtimeController = new RuntimeController();
 
   console.clear();
   renderBrandHeader(state);
@@ -47,9 +48,9 @@ export async function startInteractiveShell(): Promise<void> {
     }
 
     if (input.startsWith('/')) {
-      await handleSlashCommand(input, state, chatSession, rl);
+      await handleSlashCommand(input, state, chatSession, rl, runtimeController);
     } else {
-      await handleInteractiveChat(input, state, chatSession, rl);
+      await runtimeController.handleUserInput(input, state, chatSession, rl);
     }
     rl.prompt();
   }).on('close', () => {

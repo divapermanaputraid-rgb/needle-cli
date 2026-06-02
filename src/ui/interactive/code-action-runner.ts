@@ -88,12 +88,20 @@ export async function runCodeAction(options: CodeActionRunnerOptions): Promise<A
            const exists = await fileExists(p);
            const status = exists ? `${green}OK${reset}` : `${red}FAILED (Missing)${reset}`;
            console.log(`- ${obs.metadata.path} exists ${status}`);
+           
+           if (exists && sessionState?.toolObservations) {
+             sessionState.toolObservations.updateLastCreatedFile(obs.metadata.path as string);
+           }
          }
          if (obs.toolName === 'dir.create' && obs.ok && obs.metadata?.path) {
            const p = path.resolve(cwd, obs.metadata.path as string);
            const exists = await dirExists(p);
            const status = exists ? `${green}OK${reset}` : `${red}FAILED (Missing)${reset}`;
            console.log(`- ${obs.metadata.path} exists ${status}`);
+           
+           if (exists && sessionState?.toolObservations) {
+             sessionState.toolObservations.updateLastCreatedDirectory(obs.metadata.path as string);
+           }
          }
       }
       console.log(`\nDone:\n${result.summary}`);

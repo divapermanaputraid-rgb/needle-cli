@@ -1,0 +1,64 @@
+#!/usr/bin/expect -f
+set timeout 60
+
+spawn node dist/index.js init --force
+expect eof
+
+spawn node dist/index.js config set provider 9router
+expect eof
+
+spawn node dist/index.js config set providers.9router.baseUrl http://43.129.58.138:20128/v1
+expect eof
+
+spawn node dist/index.js config set model.smart high
+expect eof
+
+spawn node dist/index.js config set model.coder high
+expect eof
+
+spawn node dist/index.js config set model.planner high
+expect eof
+
+spawn node dist/index.js
+expect "needle"
+send "buatkan folder test-1\r"
+
+expect {
+    "Run coding agent? (Y/n)" {
+        send "Y\r"
+    }
+    "Proceed? (Y/n)" {
+        send "Y\r"
+    }
+    timeout {
+        puts "Timeout waiting for confirmation"
+        exit 1
+    }
+}
+
+expect "needle"
+send "mana foldernya?\r"
+
+expect "needle"
+send "/code buatkan folder test-2\r"
+
+expect {
+    "Run coding agent? (Y/n)" {
+        send "Y\r"
+    }
+    "Proceed? (Y/n)" {
+        send "Y\r"
+    }
+    timeout {
+        puts "Timeout waiting for confirmation"
+        exit 1
+    }
+}
+
+expect "needle"
+send "mana foldernya?\r"
+
+expect "needle"
+send "/exit\r"
+
+expect eof

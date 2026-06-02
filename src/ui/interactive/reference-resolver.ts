@@ -19,13 +19,15 @@ export class ReferenceResolver {
 
     const text = input.toLowerCase();
     const hasDirReference = [
-      "di dalamnya", "di folder tadi", "folder tadi", "itu", 
+      "di dalamnya", "di folder tadi", "folder tadi", "itu", "di situ",
       "there", "inside it", "the previous folder", "di dalam nya", "di dalam"
     ].some(ref => text.includes(ref));
 
     if (hasDirReference) {
-      return this.observationStore.getLastCreatedDirectory() || 
+      return this.observationStore.getLastCreatedDirectory() ||
              this.observationStore.getLastModifiedDirectory() ||
+             this.observationStore.getLastCreatedFile() ||
+             this.observationStore.getLastModifiedFile() ||
              this.observationStore.getLastMentionedPath();
     }
 
@@ -39,11 +41,11 @@ export class ReferenceResolver {
 
     const text = input.toLowerCase();
     const hasFileReference = [
-      "file tadi", "itu", "filenya", "the file", "the previous file"
+      "file tadi", "itu", "filenya", "the file", "the previous file", "di situ"
     ].some(ref => text.includes(ref));
 
     if (hasFileReference) {
-      return this.observationStore.getLastCreatedFile() || 
+      return this.observationStore.getLastCreatedFile() ||
              this.observationStore.getLastModifiedFile() ||
              this.observationStore.getLastMentionedPath();
     }

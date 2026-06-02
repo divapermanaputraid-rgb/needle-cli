@@ -36,6 +36,9 @@ export async function runDocumentation(options: DocumentationRunnerOptions): Pro
      if (lastDir) {
        targetDir = lastDir;
        targetFile = path.join(targetDir, "README.md");
+     } else if (input.toLowerCase().includes("docs")) {
+       targetDir = "docs";
+       targetFile = "docs/INSTALLATION.md";
      } else {
        console.log("I am not sure where to create the documentation. Please specify a folder or file.");
        return undefined;
@@ -43,7 +46,11 @@ export async function runDocumentation(options: DocumentationRunnerOptions): Pro
   }
 
   if (targetDir && !targetFile) {
-     targetFile = path.join(targetDir, "README.md");
+     if (targetDir === "docs" || targetDir === "docs/") {
+         targetFile = path.join(targetDir, "INSTALLATION.md");
+     } else {
+         targetFile = path.join(targetDir, "README.md");
+     }
   }
 
   if (!targetFile) {

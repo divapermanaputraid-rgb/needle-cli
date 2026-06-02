@@ -5,8 +5,9 @@ import { runSettingsWizard } from './settings-wizard.js';
 import { saveNeedleConfig } from '../../config/loader.js';
 import { handleInteractiveChat } from './interactive-chat.js';
 import type { ChatSession } from './chat-session.js';
+import type { RuntimeController } from './runtime-controller.js';
 
-export async function handleSlashCommand(input: string, state: ShellState, chatSession: ChatSession, rl?: readline.Interface): Promise<boolean> {
+export async function handleSlashCommand(input: string, state: ShellState, chatSession: ChatSession, rl?: readline.Interface, runtimeController?: RuntimeController): Promise<boolean> {
   if (!input.trim().startsWith('/')) {
     return false;
   }
@@ -168,7 +169,12 @@ ${bold}Available Commands:${reset}
 
     case '/plan':
       if (parts.length > 1) {
-        await handleInteractiveChat(input, state, chatSession, rl);
+        if (runtimeController) {
+          const task = parts.slice(1).join(' ');
+          await runtimeController.handlePlanAction(task, state);
+        } else {
+          await handleInteractiveChat(input, state, chatSession, rl);
+        }
       } else {
         console.log(`\n${yellow}Missing task. Usage: /plan <task>${reset}\n`);
       }
@@ -176,7 +182,16 @@ ${bold}Available Commands:${reset}
 
     case '/code':
       if (parts.length > 1) {
-        await handleInteractiveChat(input, state, chatSession, rl);
+        if (runtimeController && rl) {
+          const task = parts.slice(1).join(' ');
+          // Tell the runtime controller this is explicitly a code action
+          await runtimeController.handleCodeAction(task, state, chatSession, rl, {
+            intent: "code_action",
+            needsClarification: false
+          });
+        } else {
+          await handleInteractiveChat(input, state, chatSession, rl);
+        }
       } else {
         console.log(`\n${yellow}Missing task. Usage: /code <task>${reset}\n`);
       }

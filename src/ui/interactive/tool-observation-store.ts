@@ -40,13 +40,41 @@ export class ToolObservationStore {
       .filter(Boolean);
   }
 
+  updateLastCreatedFile(path: string): void {
+    this.observations.push({
+      toolName: "file.write",
+      ok: true,
+      input: { path },
+      output: "",
+      metadata: { path, created: true },
+      timestamp: Date.now()
+    });
+  }
+
+  updateLastCreatedDirectory(path: string): void {
+    this.observations.push({
+      toolName: "dir.create",
+      ok: true,
+      input: { path },
+      output: "",
+      metadata: { path, created: true },
+      timestamp: Date.now()
+    });
+  }
+
   getLastCreatedDirectory(): string | undefined {
     const dirs = this.getCreatedDirectories();
     return dirs[dirs.length - 1];
   }
 
   getLastModifiedDirectory(): string | undefined {
-    // For now, return last created as fallback
+    const lastFile = this.getLastModifiedFile();
+    if (lastFile) {
+      const parts = lastFile.split("/");
+      if (parts.length > 1) {
+        return parts.slice(0, -1).join("/");
+      }
+    }
     return this.getLastCreatedDirectory();
   }
 
