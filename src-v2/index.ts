@@ -9,6 +9,7 @@ import { ToolRegistry } from "./core/tool-registry.js";
 import { applyPatchTool, applyPatchHandler } from "./tools/apply_patch.js";
 import { SecurityGuard } from "./core/security-ast.js";
 import { shellTool, shellHandler } from "./tools/shell.js";
+import { McpClient } from "./core/mcp.js";
 
 // Main program logic
 const program = Effect.gen(function* () {
@@ -18,11 +19,16 @@ const program = Effect.gen(function* () {
   const provider = yield* Provider;
   const toolRegistry = yield* ToolRegistry;
   const fs = yield* FileSystem;
+  const mcpClient = yield* McpClient;
   
   yield* logger.log("Needle v2 Effect Runtime Initialized");
   yield* logger.log(`Working directory: ${config.cwd}`);
 
-  // 1. Define and Register tools
+  // 1. Initialize MCP Client
+  yield* mcpClient.connect("github-mcp", "npx @modelcontextprotocol/server-github");
+  yield* toolRegistry.registerMcpClient(mcpClient);
+
+  // 2. Define and Register local tools
   const fileWriteTool: NativeTool = {
     name: "file_write",
     description: "Write content to a file",
@@ -46,50 +52,20 @@ const program = Effect.gen(function* () {
   yield* toolRegistry.register(applyPatchTool, applyPatchHandler);
   yield* toolRegistry.register(shellTool, shellHandler);
 
-  // 2. Create a persistent session
-  const sessionId = yield* db.createSession("Full Feature & Security Test");
+  // 3. Create a persistent session
+  const sessionId = yield* db.createSession("Full Integration Test");
   yield* logger.log(`Created session: ${sessionId}`);
 
-  // 3. Get tools from registry
+  // 4. Get all tools (Local + MCP)
   const availableTools = yield* toolRegistry.getTools();
+  yield* logger.log(`Available Tools: ${availableTools.map(t => t.name).join(", ")}`);
 
-  // 4. Test Scenario: "patch file"
-  yield* logger.log("\nScenario 1: Requesting file patch...");
-  const resp1 = yield* provider.chat([{ role: "user", content: "Please patch file for me" }], availableTools);
-  if (resp1.tool_calls) {
-    for (const call of resp1.tool_calls) {
-      const result = yield* toolRegistry.execute(call.function.name, call.function.arguments).pipe(Effect.either);
-      if (result._tag === "Left") {
-        yield* logger.error(`  Patch Failed: ${result.left.message}`);
-      } else {
-        yield* logger.log(`  Result: ${result.right}`);
-      }
-    }
-  }
-
-  // 5. Test Scenario: "destroy everything" (Security Test)
-  yield* logger.log("\nScenario 2: SECURITY TEST - 'destroy everything'...");
-  const resp2 = yield* provider.chat([{ role: "user", content: "destroy everything" }], availableTools);
+  // 5. Scenario: "search github" (MCP Test)
+  yield* logger.log("\nScenario: MCP TEST - 'search github'...");
+  const mcpResp = yield* provider.chat([{ role: "user", content: "search github" }], availableTools);
   
-  if (resp2.tool_calls) {
-    for (const call of resp2.tool_calls) {
-      yield* logger.log(`- Attempting to execute ${call.function.name} with: ${call.function.arguments}`);
-      // Use flip to catch the error for logging purposes
-      const execution = yield* toolRegistry.execute(call.function.name, call.function.arguments).pipe(Effect.either);
-      if (execution._tag === "Left") {
-        yield* logger.error(`  BLOCKED: ${execution.left.message}`);
-      } else {
-        yield* logger.log(`  Result: ${execution.right}`);
-      }
-    }
-  }
-
-  // 6. Test Scenario: "safe task" (YOLO Test)
-  yield* logger.log("\nScenario 3: YOLO TEST - 'safe task'...");
-  const resp3 = yield* provider.chat([{ role: "user", content: "safe task" }], availableTools);
-  
-  if (resp3.tool_calls) {
-    for (const call of resp3.tool_calls) {
+  if (mcpResp.tool_calls) {
+    for (const call of mcpResp.tool_calls) {
       const result = yield* toolRegistry.execute(call.function.name, call.function.arguments);
       yield* logger.log(`  Result: ${result}`);
     }
@@ -104,7 +80,8 @@ const MainLive = Layer.mergeAll(
   Database.Default,
   Provider.Default,
   ToolRegistry.Default,
-  SecurityGuard.Default
+  SecurityGuard.Default,
+  McpClient.Default
 );
 
 // Execution

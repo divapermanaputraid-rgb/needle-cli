@@ -85,6 +85,22 @@ export class Provider extends Effect.Service<Provider>()("@needle/Provider", {
           } as ChatResponse;
         }
 
+        if (content.toLowerCase().includes("search github")) {
+          return {
+            content: null,
+            tool_calls: [
+              {
+                id: "call_mcp",
+                type: "function",
+                function: {
+                  name: "mcp_github_search",
+                  arguments: JSON.stringify({ query: "needle-cli" }),
+                },
+              },
+            ],
+          } as ChatResponse;
+        }
+
         return {
           content: "I'm not sure how to respond to that in mock mode.",
           tool_calls: undefined,

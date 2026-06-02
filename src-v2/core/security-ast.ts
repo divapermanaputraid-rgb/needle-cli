@@ -1,11 +1,16 @@
 import { Effect } from "effect";
 import path from "node:path";
 
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export class SecurityGuard extends Effect.Service<SecurityGuard>()("@needle/SecurityGuard", {
   effect: Effect.gen(function* () {
     // 1. Resolve WASM paths
-    const treeSitterWasm = path.resolve(process.cwd(), "tree-sitter.wasm");
-    const bashWasm = path.resolve(process.cwd(), "tree-sitter-bash.wasm");
+    const treeSitterWasm = path.resolve(__dirname, "../../tree-sitter.wasm");
+    const bashWasm = path.resolve(__dirname, "../../tree-sitter-bash.wasm");
 
     // 2. Dynamic import to get named exports
     const { Parser, Language } = yield* Effect.promise(() => import("web-tree-sitter"));
