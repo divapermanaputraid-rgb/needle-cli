@@ -67,8 +67,8 @@ describe('Doctor Command', () => {
 
       // 3. openrouter missing API key reports env var name but not value
       assert.ok(output.includes('INFO active provider API key env name: OPENROUTER_API_KEY'));
-      assert.ok(output.includes('FAIL env var is missing'));
-      assert.ok(output.includes('- export OPENROUTER_API_KEY="your_key"'));
+      assert.ok(output.includes('FAIL API key is missing'));
+      assert.ok(output.includes('- Run /settings in the interactive shell to set API key'));
 
       // 5. model profiles show configured/missing
       assert.ok(output.includes('OK fast: configured (openrouter/fast-model)'));
@@ -98,7 +98,7 @@ describe('Doctor Command', () => {
       assert.ok(output.includes('- needle config set providers.9router.baseUrl http://localhost:20128/v1'));
 
       // 7. verification
-      assert.ok(output.includes('OK env var is set'));
+      assert.ok(output.includes('OK API key: set from environment'));
       assert.ok(!output.includes('secret123_never_print_this'), "API key leaked in output!");
       
     } finally {
@@ -125,7 +125,7 @@ describe('Doctor Command', () => {
       const output = runDoctor(tempDir, env);
 
       assert.ok(output.includes('NINE_ROUTER_API_KEY is the 9Router gateway/API access key, not an upstream provider key'), "Missing correct remote key message");
-      assert.ok(output.includes('- export NINE_ROUTER_API_KEY="your_9router_gateway_key"'));
+      assert.ok(output.includes('- Run /settings in the interactive shell to set API key'));
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
