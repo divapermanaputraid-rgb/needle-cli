@@ -78,33 +78,88 @@ export async function runCodeAction(options: CodeActionRunnerOptions): Promise<A
     if (result.observations && result.observations.length > 0) {
       for (const obs of result.observations) {
         const status = obs.ok ? `${green}OK${reset}` : `${red}FAILED${reset}`;
-        console.log(`- ${obs.toolName} ${JSON.stringify(obs.input)} ${status}`);
+        // Mask absolute paths in the JSON string
+        const displayInput = { ...obs.input };
+        if (typeof displayInput.path === 'string' && path.isAbsolute(displayInput.path)) {
+          displayInput.path = path.relative(cwd, displayInput.path);
+        }
+        console.log(`- ${obs.toolName} ${JSON.stringify(displayInput)} ${status}`);
       }
 
       console.log(`\nVerification:`);
+      
+      let createdDirRelative = "";
+      let createdFileRelative = "";
+      let failedTarget = "";
+      let failedReason = "";
+
       for (const obs of result.observations) {
-         if (obs.toolName === 'file.write' && obs.ok && obs.metadata?.path) {
+         if (obs.toolName === 'file.write' && obs.metadata?.path) {
            const p = path.resolve(cwd, obs.metadata.path as string);
-           const exists = await fileExists(p);
-           const status = exists ? `${green}OK${reset}` : `${red}FAILED (Missing)${reset}`;
-           console.log(`- ${obs.metadata.path} exists ${status}`);
-           
-           if (exists && sessionState?.toolObservations) {
-             sessionState.toolObservations.updateLastCreatedFile(obs.metadata.path as string);
+           const relPath = path.relative(cwd, p);
+           if (obs.ok) {
+             const exists = await fileExists(p);
+             const status = exists ? `${green}OK${reset}` : `${red}FAILED (Missing)${reset}`;
+             console.log(`- ${relPath} exists ${status}`);
+             
+             if (exists) {
+               createdFileRelative = relPath;
+               if (sessionState?.toolObservations) {
+                 // Store both relative display path and absolute path technically, but UI uses the path stored here
+                 sessionState.toolObservations.updateLastCreatedFile(relPath, p);
+               }
+             }
+           } else {
+             failedTarget = relPath;
+             failedReason = obs.output || "Unknown error";
            }
          }
-         if (obs.toolName === 'dir.create' && obs.ok && obs.metadata?.path) {
+         if (obs.toolName === 'dir.create' && obs.metadata?.path) {
            const p = path.resolve(cwd, obs.metadata.path as string);
-           const exists = await dirExists(p);
-           const status = exists ? `${green}OK${reset}` : `${red}FAILED (Missing)${reset}`;
-           console.log(`- ${obs.metadata.path} exists ${status}`);
-           
-           if (exists && sessionState?.toolObservations) {
-             sessionState.toolObservations.updateLastCreatedDirectory(obs.metadata.path as string);
+           const relPath = path.relative(cwd, p);
+           if (obs.ok) {
+             const exists = await dirExists(p);
+             const status = exists ? `${green}OK${reset}` : `${red}FAILED (Missing)${reset}`;
+             console.log(`- ${relPath} exists ${status}`);
+             
+             if (exists) {
+               createdDirRelative = relPath;
+               if (sessionState?.toolObservations) {
+                 sessionState.toolObservations.updateLastCreatedDirectory(relPath, p);
+               }
+             }
+           } else {
+             failedTarget = relPath;
+             failedReason = obs.output || "Unknown error";
            }
          }
       }
-      console.log(`\nDone:\n${result.summary}`);
+
+      // Generate clean final messages based on tools executed
+      let finalSummary = result.summary;
+      if (failedTarget) {
+        finalSummary = `Failed: Could not create ${failedTarget}. ${failedReason}`;
+        console.log(`\n${finalSummary}`);
+      } else if (createdFileRelative) {
+        if (intent?.contentGoal?.toLowerCase().includes("workspace") || input.toLowerCase().includes("workspace")) {
+           finalSummary = `Created ${createdFileRelative} with a workspace overview.`;
+        } else {
+           finalSummary = `Created ${createdFileRelative}.`;
+        }
+        console.log(`\nDone:\n${finalSummary}`);
+      } else if (createdDirRelative) {
+        finalSummary = `Created directory ${createdDirRelative}.`;
+        console.log(`\nDone:\n${finalSummary}`);
+      } else {
+        // Fallback cleanup for any deterministic messages from the provider
+        finalSummary = finalSummary
+            .replace(/workscapce/g, "workspace")
+            .replace(/file explain workspace/gi, "workspace overview")
+            .replace(/folder (.*?) made/gi, "Created directory $1");
+        console.log(`\nDone:\n${finalSummary}`);
+      }
+      
+      result.summary = finalSummary;
     } else {
       console.log("- None");
       console.log(`\nDone:\nThe coding agent did not execute any tools. No files were changed.`);

@@ -40,24 +40,24 @@ export class ToolObservationStore {
       .filter(Boolean);
   }
 
-  updateLastCreatedFile(path: string): void {
+  updateLastCreatedFile(displayPath: string, absolutePath?: string): void {
     this.observations.push({
       toolName: "file.write",
       ok: true,
-      input: { path },
+      input: { path: absolutePath || displayPath },
       output: "",
-      metadata: { path, created: true },
+      metadata: { path: displayPath, absolutePath, created: true },
       timestamp: Date.now()
     });
   }
 
-  updateLastCreatedDirectory(path: string): void {
+  updateLastCreatedDirectory(displayPath: string, absolutePath?: string): void {
     this.observations.push({
       toolName: "dir.create",
       ok: true,
-      input: { path },
+      input: { path: absolutePath || displayPath },
       output: "",
-      metadata: { path, created: true },
+      metadata: { path: displayPath, absolutePath, created: true },
       timestamp: Date.now()
     });
   }
