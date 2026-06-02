@@ -3,6 +3,8 @@ import { ToolRegistry, createDefaultToolRegistry } from "../tools/registry.js";
 import { buildProjectContext } from "./context-builder.js";
 import { buildAgentSystemPrompt, buildAgentUserPrompt } from "./prompt-builder.js";
 import { appendSessionRecord, createSessionId, SessionRecord } from "./session.js";
+import type { SessionState } from "../ui/interactive/session-state.js";
+import type { ToolObservation } from "../ui/interactive/tool-observation-store.js";
 
 export interface AgentLoopOptions {
   cwd: string;
@@ -12,6 +14,7 @@ export interface AgentLoopOptions {
   dryRun?: boolean;
   providerChat?: (messages: ChatMessage[]) => Promise<ChatResponse>;
   toolRegistry?: ToolRegistry;
+  sessionState?: SessionState;
 }
 
 export interface AgentToolCallRecord {
@@ -24,6 +27,7 @@ export interface AgentLoopResult {
   summary: string;
   iterations: number;
   toolCalls: AgentToolCallRecord[];
+  observations?: ToolObservation[];
 }
 
 export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoopResult> {
@@ -32,7 +36,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
   const isDryRun = options.dryRun ?? false;
   
   const registry = options.toolRegistry ?? createDefaultToolRegistry();
-  
+  const sessionState = options.sessionState;
+
   const ctx = await buildProjectContext({ cwd: options.cwd });
   
   const systemPrompt = buildAgentSystemPrompt({
@@ -42,6 +47,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
   });
 
   const toolCalls: AgentToolCallRecord[] = [];
+  const loopObservations: ToolObservation[] = [];
   let iterations = 0;
   let finalSummary = "";
   let success = false;
@@ -88,65 +94,106 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     const response = await options.providerChat(messages);
     messages.push({ role: "assistant", content: response.content });
 
-    let parsed: any;
+    const hasPseudoCommands = /(?:\/code|\/shell|file\.write|shell\s+)/.test(response.content);
+
+    let parsedArray: any[] = [];
     try {
-      parsed = JSON.parse(response.content);
+      // Find all JSON blocks in the response. Model might mix text and JSON.
+      const jsonBlocks = response.content.match(/```json\n([\s\S]*?)\n```/g);
+      if (jsonBlocks && jsonBlocks.length > 0) {
+        for (const block of jsonBlocks) {
+          const raw = block.replace(/```json\n/, '').replace(/\n```$/, '');
+          parsedArray.push(JSON.parse(raw));
+        }
+      } else {
+        // Fallback: try parse entire response if no codeblocks found
+        parsedArray = [JSON.parse(response.content)];
+      }
     } catch (err) {
+      if (hasPseudoCommands) {
+        messages.push({
+          role: "user",
+          content: "The model returned pseudo tool text instead of a valid tool call. Retrying with tool protocol."
+        });
+        continue;
+      }
       const errMsg = "Error: Invalid JSON response.";
       errors.push(errMsg);
       messages.push({
         role: "user",
-        content: errMsg + " You must respond ONLY with valid JSON using the required protocol formats."
+        content: errMsg + " You must respond ONLY with valid JSON inside \\`\\`\\`json blocks representing your tool calls."
       });
       continue;
     }
 
-    if (parsed.type === "final") {
-      success = true;
-      finalSummary = parsed.summary || "Task completed.";
-      break;
-    } else if (parsed.type === "tool_call") {
-      const toolName = parsed.tool;
-      const toolInput = parsed.input;
-      
-      const toolDef = registry.get(toolName);
-      
-      if (!toolDef) {
-        toolCalls.push({ tool: toolName, ok: false });
-        messages.push({
-          role: "user",
-          content: `Error: Unknown tool '${toolName}'. Available tools are: ${registry.list().map(t => t.name).join(", ")}`
-        });
-        continue;
-      }
-      
-      try {
-        const result = await registry.execute(toolName, toolInput, { cwd: options.cwd });
-        toolCalls.push({ tool: toolName, ok: result.ok });
+    // Process all parsed blocks sequentially
+    let didBreak = false;
+    for (const parsed of parsedArray) {
+      if (parsed.type === "final") {
+        success = true;
+        finalSummary = parsed.summary || "Task completed.";
+        didBreak = true;
+        break;
+      } else if (parsed.type === "tool_call") {
+        const toolName = parsed.tool;
+        const toolInput = parsed.input;
         
-        let observation = result.output;
-        if (!result.ok) {
-           observation = `Tool failed: ${result.output}`;
+        const toolDef = registry.get(toolName);
+        
+        if (!toolDef) {
+          toolCalls.push({ tool: toolName, ok: false });
+          messages.push({
+            role: "user",
+            content: `Error: Unknown tool '${toolName}'. Available tools are: ${registry.list().map(t => t.name).join(", ")}`
+          });
+          continue;
         }
         
-        messages.push({
+        try {
+          const result = await registry.execute(toolName, toolInput, { cwd: options.cwd });
+          toolCalls.push({ tool: toolName, ok: result.ok });
+
+          const obsRecord: ToolObservation = {
+            toolName,
+            input: typeof toolInput === 'object' && toolInput ? toolInput as Record<string, unknown> : {},
+            ok: result.ok,
+            output: result.output,
+            metadata: result.metadata,
+            timestamp: Date.now()
+          };
+          loopObservations.push(obsRecord);
+          if (sessionState) {
+            sessionState.toolObservations.record(obsRecord);
+          }
+
+          let observation = result.output;
+          if (!result.ok) {
+             observation = `Tool failed: ${result.output}`;
+          }
+
+          messages.push({
+            role: "user",
+            content: `Observation from ${toolName}:\n${observation}`
+          });
+        } catch (err) {
+          toolCalls.push({ tool: toolName, ok: false });
+          const errMsg = err instanceof Error ? err.message : String(err);
+          errors.push(`Tool execution error for ${toolName}: ${errMsg}`);
+          messages.push({
+            role: "user",
+            content: `Error executing tool: ${errMsg}`
+          });
+        }
+      } else {
+         messages.push({
           role: "user",
-          content: `Observation:\n${observation}`
-        });
-      } catch (err) {
-        toolCalls.push({ tool: toolName, ok: false });
-        const errMsg = err instanceof Error ? err.message : String(err);
-        errors.push(`Tool execution error for ${toolName}: ${errMsg}`);
-        messages.push({
-          role: "user",
-          content: `Error executing tool: ${errMsg}`
+          content: "Error: Invalid response type. Must be 'tool_call' or 'final'."
         });
       }
-    } else {
-       messages.push({
-        role: "user",
-        content: "Error: Invalid response type. Must be 'tool_call' or 'final'."
-      });
+    }
+    
+    if (didBreak) {
+      break;
     }
   }
 
@@ -175,6 +222,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     ok: success,
     summary: finalSummary,
     iterations,
-    toolCalls
+    toolCalls,
+    observations: loopObservations
   };
 }

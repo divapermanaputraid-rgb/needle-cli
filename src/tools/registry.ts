@@ -6,6 +6,12 @@ import { gitDiffTool } from "./git-diff.js";
 import { fileWriteTool } from "./file-write.js";
 import { fileEditTool } from "./file-edit.js";
 import { shellTool } from "./shell.js";
+import { dirCreateTool } from "./dir.create.js";
+import { dirExistsTool } from "./dir.exists.js";
+import { dirListTool } from "./dir.list.js";
+import { askUserQuestionTool } from "./ask-user.js";
+import { enterPlanModeTool } from "./enter-plan-mode.js";
+import { exitPlanModeTool } from "./exit-plan-mode.js";
 
 export class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
@@ -47,5 +53,11 @@ export function createDefaultToolRegistry(): ToolRegistry {
   registry.register(fileWriteTool);
   registry.register(fileEditTool);
   registry.register(shellTool);
+  registry.register(dirCreateTool);
+  registry.register(dirExistsTool);
+  registry.register(dirListTool);
+  registry.register(askUserQuestionTool);
+  registry.register(enterPlanModeTool);
+  registry.register(exitPlanModeTool);
   return registry;
 }
