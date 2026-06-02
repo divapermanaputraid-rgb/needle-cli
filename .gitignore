@@ -47,3 +47,9 @@ docs/
 
 # Testing scripts
 *.exp
+
+# Experimental V2 artifacts
+.needle-v2.db
+
+# Local reference materials
+reference/
