@@ -6,6 +6,8 @@ import { appendSessionRecord, createSessionId, SessionRecord } from "./session.j
 import type { SessionState } from "../ui/interactive/session-state.js";
 import type { ToolObservation } from "../ui/interactive/tool-observation-store.js";
 import { compactMessages } from "./context-collapse.js";
+import { detectRepoConventions } from "../runtime/repo/repo-conventions.js";
+import { execSync } from "child_process";
 
 export interface AgentLoopOptions {
   cwd: string;
@@ -41,11 +43,13 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
   const sessionState = options.sessionState;
 
   const ctx = await buildProjectContext({ cwd: options.cwd });
+  const repoConventions = detectRepoConventions(options.cwd);
   
   const systemPrompt = buildAgentSystemPrompt({
     task: options.task,
     projectContext: ctx,
-    tools: registry.list()
+    tools: registry.list(),
+    repoConventions
   });
 
   const toolCalls: AgentToolCallRecord[] = [];
@@ -176,13 +180,35 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         
         try {
           const result = await registry.execute(toolName, toolInput, { cwd: options.cwd });
-          toolCalls.push({ tool: toolName, ok: result.ok });
+          
+          let ok = result.ok;
+          let output = result.output ?? String(result.result ?? result.error ?? "");
+          
+          // Test Framework Guard for edited/created files
+          if (ok && (toolName === 'file.edit' || toolName === 'file.write' || toolName === 'shell')) {
+            const forbidden = [];
+            if (repoConventions.testFramework === 'node:test') {
+               forbidden.push('vitest', 'bun:test');
+            }
+
+            if (forbidden.length > 0 && typeof toolInput === 'object' && toolInput) {
+              const contentToCheck = (toolInput as any).content || (toolInput as any).command || "";
+              const usedForbidden = forbidden.find((f: string) => contentToCheck.includes(f));
+              
+              if (usedForbidden) {
+                 ok = false;
+                 output = `Validation failed: Forbidden import or usage of '${usedForbidden}' detected. This repository uses ${repoConventions.testFramework} and ${repoConventions.assertionLibrary}. Please rewrite using the correct framework.`;
+              }
+            }
+          }
+
+          toolCalls.push({ tool: toolName, ok });
 
           const obsRecord: ToolObservation = {
             toolName,
             input: typeof toolInput === 'object' && toolInput ? toolInput as Record<string, unknown> : {},
-            ok: result.ok,
-            output: result.output ?? String(result.result ?? result.error ?? ""),
+            ok,
+            output,
             metadata: result.metadata,
             timestamp: Date.now()
           };
@@ -191,8 +217,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
             sessionState.toolObservations.record(obsRecord);
           }
 
-          let observation = result.output ?? String(result.result ?? result.error ?? "");
-          if (!result.ok) {
+          let observation = output;
+          if (!ok) {
              observation = `Tool failed: ${observation}`;
           }
 
@@ -218,7 +244,40 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     }
     
     if (didBreak) {
-      break;
+      if (success) {
+        // Run validations
+        const needsValidation = toolCalls.some(t => t.tool === 'file.edit' || t.tool === 'file.write');
+        if (needsValidation) {
+           let validationPassed = true;
+           let validationOutput = "";
+           
+           try {
+             if (repoConventions.typecheckCommand) {
+                execSync(repoConventions.typecheckCommand, { cwd: options.cwd, stdio: 'pipe' });
+             }
+             if (repoConventions.testCommand) {
+                execSync(repoConventions.testCommand, { cwd: options.cwd, stdio: 'pipe' });
+             }
+           } catch (err: any) {
+             validationPassed = false;
+             validationOutput = err.stdout?.toString() || err.stderr?.toString() || String(err);
+           }
+
+           if (!validationPassed) {
+             success = false;
+             didBreak = false;
+             messages.push({
+               role: "user",
+               content: `Validation failed after your changes. Please fix the following errors:\n${validationOutput}`
+             });
+             continue; // Continue loop to fix the errors
+           }
+        }
+      }
+      
+      if (success || didBreak) {
+        break;
+      }
     }
   }
 

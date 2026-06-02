@@ -1,11 +1,13 @@
 import type { ProjectContext } from "./context-builder.js";
 import { formatProjectContextForPrompt } from "./context-builder.js";
 import type { ToolDefinition } from "../tools/types.js";
+import type { RepoConventions } from "../runtime/repo/repo-conventions.js";
 
 export interface AgentPromptInput {
   task: string;
   projectContext: ProjectContext;
   tools: ToolDefinition[];
+  repoConventions?: RepoConventions;
 }
 
 export function buildAgentSystemPrompt(input: AgentPromptInput): string {
@@ -16,6 +18,10 @@ export function buildAgentSystemPrompt(input: AgentPromptInput): string {
   Description: ${t.description}
   Input Schema: ${t.inputSchemaDescription}`;
   }).join("\n\n");
+
+  const conventionsStr = input.repoConventions 
+    ? `\n${input.repoConventions.conventionsSummary}` 
+    : '';
 
   return `You are Needle, a precise and capable AI coding agent.
 
@@ -45,7 +51,7 @@ AVAILABLE TOOLS
 ${toolsStr}
 
 PROJECT CONTEXT
-${ctx}
+${ctx}${conventionsStr}
 
 Respond ONLY in the JSON protocol format.`;
 }
@@ -57,10 +63,14 @@ export function buildAgentUserPrompt(task: string): string {
 export interface PlannerPromptInput {
   task: string;
   projectContext: ProjectContext;
+  repoConventions?: RepoConventions;
 }
 
 export function buildPlannerSystemPrompt(input: PlannerPromptInput): string {
   const ctx = formatProjectContextForPrompt(input.projectContext);
+  const conventionsStr = input.repoConventions 
+    ? `\n${input.repoConventions.conventionsSummary}` 
+    : '';
 
   return `You are Needle, an expert Software Architect and Planner.
 Your task is to analyze the user's request and project context to create a detailed implementation plan.
@@ -100,7 +110,7 @@ Return a structured implementation plan in Markdown with exactly these headings:
 needle code "${input.task}" --plan-first
 
 PROJECT CONTEXT:
-${ctx}`;
+${ctx}${conventionsStr}`;
 }
 
 export function buildPlannerUserPrompt(task: string): string {
