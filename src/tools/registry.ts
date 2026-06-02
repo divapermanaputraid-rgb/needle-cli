@@ -24,6 +24,12 @@ export class ToolRegistry {
     if (this.tools.has(tool.name)) {
       throw new Error(`Tool already registered: ${tool.name}`);
     }
+    if (!tool.riskLevel) {
+      throw new Error(`Tool missing riskLevel: ${tool.name}`);
+    }
+    if (!tool.inputSchemaDescription && !tool.inputSchema) {
+      throw new Error(`Tool missing input schema: ${tool.name}`);
+    }
     this.tools.set(tool.name, tool);
   }
 
