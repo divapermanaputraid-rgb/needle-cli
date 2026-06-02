@@ -10,6 +10,7 @@ import { compactMessages } from "./context-collapse.js";
 export interface AgentLoopOptions {
   cwd: string;
   task: string;
+  history?: ChatMessage[];
   profile?: ModelProfile;
   maxIterations?: number;
   dryRun?: boolean;
@@ -80,6 +81,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
 
   let messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
+    ...(options.history || []),
     { role: "user", content: buildAgentUserPrompt(options.task) }
   ];
 

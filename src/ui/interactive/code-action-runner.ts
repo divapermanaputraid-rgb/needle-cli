@@ -1,6 +1,6 @@
 import * as readline from "node:readline";
 import { runAgentLoop, AgentLoopResult } from "../../core/agent-loop.js";
-import type { ModelProfile } from "../../providers/types.js";
+import type { ModelProfile, ChatMessage } from "../../providers/types.js";
 import { ProviderRouter } from "../../providers/router.js";
 import { NeedleConfig } from "../../config/schema.js";
 import { SessionState } from "./session-state.js";
@@ -11,6 +11,7 @@ import { TaskIntent } from "./task-normalizer.js";
 export interface CodeActionRunnerOptions {
   input: string;
   cwd: string;
+  history: ChatMessage[];
   config: NeedleConfig;
   router: ProviderRouter;
   targetProfile: ModelProfile;
@@ -20,7 +21,7 @@ export interface CodeActionRunnerOptions {
   intent?: TaskIntent;
 }
 
-export async function runCodeAction(options: CodeActionRunnerOptions): Promise<void> {
+export async function runCodeAction(options: CodeActionRunnerOptions): Promise<AgentLoopResult | undefined> {
   const { input, cwd, config, router, targetProfile, providerId, rl, sessionState, intent } = options;
   const yellow = "\x1b[33m";
   const red = "\x1b[31m";
@@ -52,95 +53,8 @@ export async function runCodeAction(options: CodeActionRunnerOptions): Promise<v
 
   if (confirm.toLowerCase() !== "y" && confirm !== "") {
     console.log("Cancelled. No files changed.");
-    return;
+    return undefined;
   }
-
-  // Deterministic shortcuts
-  if (intent?.intent === "code_action") {
-    if (intent.targetDirectory && !intent.contentGoal) {
-       console.log("\nRunning coding agent...");
-       console.log(`\nTool Calls:`);
-       const targetPath = path.resolve(cwd, intent.targetDirectory);
-       let ok = false;
-       try {
-         await fs.mkdir(targetPath, { recursive: true });
-         ok = true;
-         sessionState.toolObservations.record({
-           toolName: "dir.create",
-           input: { path: intent.targetDirectory },
-           ok: true,
-           output: `Successfully created directory ${intent.targetDirectory}`,
-           metadata: { path: intent.targetDirectory, created: true }
-         });
-         console.log(`- dir.create {"path":"${intent.targetDirectory}"} ${green}OK${reset}`);
-       } catch (e: any) {
-         sessionState.toolObservations.record({
-           toolName: "dir.create",
-           input: { path: intent.targetDirectory },
-           ok: false,
-           output: `Error: ${e.message}`
-         });
-         console.log(`- dir.create {"path":"${intent.targetDirectory}"} ${red}FAILED${reset}`);
-       }
-
-       console.log(`\nVerification:`);
-       const exists = await dirExists(targetPath);
-       const status = exists ? `${green}OK${reset}` : `${red}FAILED (Missing)${reset}`;
-       console.log(`- ${intent.targetDirectory} exists ${status}`);
-       
-       if (exists) {
-         sessionState.toolObservations.record({
-            toolName: "dir.exists",
-            input: { path: intent.targetDirectory },
-            ok: true,
-            output: "true",
-            metadata: { exists: true }
-         });
-         console.log(`- dir.exists {"path":"${intent.targetDirectory}"} ${green}OK${reset}`);
-       }
-
-       console.log(`\nDone:\nCreated directory ${intent.targetDirectory}.`);
-       return;
-    } else if (intent.targetPath && intent.contentGoal) {
-       console.log("\nRunning coding agent...");
-       console.log(`\nTool Calls:`);
-       const targetPath = path.resolve(cwd, intent.targetPath);
-       
-       // Ensure directory exists
-       await fs.mkdir(path.dirname(targetPath), { recursive: true });
-
-       let ok = false;
-       try {
-         await fs.writeFile(targetPath, intent.contentGoal, "utf-8");
-         ok = true;
-         sessionState.toolObservations.record({
-           toolName: "file.write",
-           input: { path: intent.targetPath, content: intent.contentGoal },
-           ok: true,
-           output: `Successfully wrote file ${intent.targetPath}`,
-           metadata: { path: intent.targetPath, created: true }
-         });
-         console.log(`- file.write {"path":"${intent.targetPath}"} ${green}OK${reset}`);
-       } catch (e: any) {
-         sessionState.toolObservations.record({
-           toolName: "file.write",
-           input: { path: intent.targetPath, content: intent.contentGoal },
-           ok: false,
-           output: `Error: ${e.message}`
-         });
-         console.log(`- file.write {"path":"${intent.targetPath}"} ${red}FAILED${reset}`);
-       }
-
-       console.log(`\nVerification:`);
-       const exists = await fileExists(targetPath);
-       const status = exists ? `${green}OK${reset}` : `${red}FAILED (Missing)${reset}`;
-       console.log(`- ${intent.targetPath} exists ${status}`);
-       
-       console.log(`\nDone:\nCreated file ${intent.targetPath}.`);
-       return;
-    }
-  }
-
 
   console.log("\nRunning coding agent...");
   try {
@@ -149,6 +63,7 @@ export async function runCodeAction(options: CodeActionRunnerOptions): Promise<v
     const result = await runAgentLoop({
       cwd,
       task: input,
+      history: options.history,
       profile: codeProfile,
       providerChat: async (msgs) =>
         router.chatWithProfile({
@@ -187,8 +102,11 @@ export async function runCodeAction(options: CodeActionRunnerOptions): Promise<v
       console.log(`\nDone:\nThe coding agent did not execute any tools. No files were changed.`);
     }
 
+    return result;
+
   } catch (err: any) {
     console.log(`\n${red}Code Workflow Error: ${err.message}${reset}`);
+    return undefined;
   }
 }
 

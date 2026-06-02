@@ -85,9 +85,10 @@ export async function handleInteractiveChat(
 
   if (intentData.intent === 'code_action') {
     if (rl) {
-      await runCodeAction({
+      const result = await runCodeAction({
         input,
         cwd: state.cwd,
+        history: chatSession.getHistory(),
         config,
         router,
         targetProfile,
@@ -96,13 +97,18 @@ export async function handleInteractiveChat(
         sessionState: runtimeSessionState,
         intent: intentData
       });
+      if (result) {
+        chatSession.addMessage({ role: 'user', content: input });
+        chatSession.addMessage({ role: 'assistant', content: result.summary });
+      }
       return;
     }
   } else if (intentData.intent === 'write_documentation') {
     if (rl) {
-      await runDocumentation({
+      const result = await runDocumentation({
         input,
         cwd: state.cwd,
+        history: chatSession.getHistory(),
         config,
         router,
         targetProfile,
@@ -111,9 +117,14 @@ export async function handleInteractiveChat(
         sessionState: runtimeSessionState,
         intent: intentData
       });
+      if (result) {
+        chatSession.addMessage({ role: 'user', content: input });
+        chatSession.addMessage({ role: 'assistant', content: result.summary });
+      }
       return;
     }
-  } else if (intentData.intent === 'plan') {
+  }
+ else if (intentData.intent === 'plan') {
     console.log('\nRunning plan workflow...');
     try {
       const planProfile: ModelProfile = config.models.planner ? 'planner' : targetProfile!;
