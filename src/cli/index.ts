@@ -35,8 +35,10 @@ program.addCommand(doctorCommand);
 
 // If no arguments provided, launch the interactive shell
 if (process.argv.length <= 2) {
-  startInteractiveShell().catch((err) => {
-    console.error("Failed to start interactive shell:", err);
+  console.log("\x1b[35m%s\x1b[0m", "\n[ Needle v2 (Super Agent Mode) Activated ]\n");
+  // Launch the new v2 TUI architecture
+  import("../../src-v2/tui/run-tui.js").catch((err) => {
+    console.error("Failed to start Needle v2 TUI:", err);
     process.exit(1);
   });
 } else {
