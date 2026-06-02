@@ -179,10 +179,11 @@ Be detailed and professional.`;
     exists = false;
   }
 
+  const relTargetFile = path.relative(cwd, fullTargetPath);
   const status = exists ? `${green}OK${reset}` : `${red}FAILED (Missing)${reset}`;
-  console.log(`- ${targetFile} exists ${status}`);
+  console.log(`- ${relTargetFile} exists ${status}`);
 
-  const summary = `Created documentation at ${targetFile}.`;
+  const summary = `Created documentation at ${relTargetFile}.`;
   console.log(`\nDone:\n${summary}`);
   return { summary };
 }

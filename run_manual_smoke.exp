@@ -20,8 +20,8 @@ spawn node dist/index.js config set model.planner high
 expect eof
 
 spawn node dist/index.js
-expect "needle"
-send "buatkan folder test-1\r"
+expect ">"
+send "buat folder test-1\r"
 
 expect {
     "Run coding agent? (Y/n)" {
@@ -36,11 +36,11 @@ expect {
     }
 }
 
-expect "needle"
+expect ">"
 send "mana foldernya?\r"
 
-expect "needle"
-send "/code buatkan folder test-2\r"
+expect ">"
+send "didalam folder test-1 buat file README.md isinya menjelaskan semua tentang workspace ini\r"
 
 expect {
     "Run coding agent? (Y/n)" {
@@ -55,10 +55,11 @@ expect {
     }
 }
 
-expect "needle"
-send "mana foldernya?\r"
+expect ">"
+send "mana filenya?\r"
 
-expect "needle"
+expect ">"
 send "/exit\r"
+
 
 expect eof

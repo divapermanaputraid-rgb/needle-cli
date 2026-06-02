@@ -1,0 +1,35 @@
+#!/usr/bin/expect -f
+set timeout 10
+
+spawn node dist/index.js
+expect ">"
+send "/settings\r"
+
+expect "Initialize now? (Y/n)"
+send "y\r"
+
+expect "Choice:"
+send "3\r"
+
+expect "Base URL:"
+send "http://43.129.58.138:20128/v1\r"
+
+expect "API key:"
+send "sk-test-key-123\r"
+
+expect "Save API key locally for this workspace?"
+send "Y\r"
+
+expect "Model:"
+send "high\r"
+
+expect "Choice:"
+send "1\r"
+
+expect ">"
+send "/secrets\r"
+
+expect ">"
+send "/exit\r"
+
+expect eof

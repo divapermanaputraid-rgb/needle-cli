@@ -21,6 +21,21 @@ export interface CodeActionRunnerOptions {
   intent?: TaskIntent;
 }
 
+export function parseGeneratedSummary(summary: string): string {
+  // Apply standard typographical fixes to final summaries
+  let s = summary
+    .replace(/workscapce/g, "workspace")
+    .replace(/file explain workspace/gi, "with a workspace overview")
+    .replace(/file (.*?) written/gi, "Created $1.")
+    .replace(/(?<!file )([^\s]+?) written/gi, "Created $1.")
+    .replace(/folder (.*?) made\.?/gi, "Created directory $1.");
+    
+  // Cleanup extra periods that might result from combining replacements
+  s = s.replace(/\.\./g, '.');
+  
+  return s.replace(/\s+/g, ' ').trim();
+}
+
 export async function runCodeAction(options: CodeActionRunnerOptions): Promise<AgentLoopResult | undefined> {
   const { input, cwd, config, router, targetProfile, providerId, rl, sessionState, intent } = options;
   const yellow = "\x1b[33m";
@@ -152,13 +167,10 @@ export async function runCodeAction(options: CodeActionRunnerOptions): Promise<A
         console.log(`\nDone:\n${finalSummary}`);
       } else {
         // Fallback cleanup for any deterministic messages from the provider
-        finalSummary = finalSummary
-            .replace(/workscapce/g, "workspace")
-            .replace(/file explain workspace/gi, "workspace overview")
-            .replace(/folder (.*?) made/gi, "Created directory $1");
+        finalSummary = parseGeneratedSummary(finalSummary);
         console.log(`\nDone:\n${finalSummary}`);
       }
-      
+
       result.summary = finalSummary;
     } else {
       console.log("- None");
