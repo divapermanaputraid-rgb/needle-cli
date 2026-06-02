@@ -7,6 +7,8 @@ import { Provider } from "./core/provider.js";
 import { NativeTool } from "./core/provider-types.js";
 import { ToolRegistry } from "./core/tool-registry.js";
 import { applyPatchTool, applyPatchHandler } from "./tools/apply_patch.js";
+import { SecurityGuard } from "./core/security-ast.js";
+import { shellTool, shellHandler } from "./tools/shell.js";
 
 // Main program logic
 const program = Effect.gen(function* () {
@@ -42,38 +44,44 @@ const program = Effect.gen(function* () {
   );
 
   yield* toolRegistry.register(applyPatchTool, applyPatchHandler);
+  yield* toolRegistry.register(shellTool, shellHandler);
 
   // 2. Create a persistent session
-  const sessionId = yield* db.createSession("Tool Execution Test");
+  const sessionId = yield* db.createSession("Full Feature & Security Test");
   yield* logger.log(`Created session: ${sessionId}`);
 
   // 3. Get tools from registry
   const availableTools = yield* toolRegistry.getTools();
 
-  // 4. Test Scenario: "create file"
-  yield* logger.log("\nScenario 1: Requesting file creation...");
-  const resp1 = yield* provider.chat([{ role: "user", content: "Please create file for me" }], availableTools);
-  
+  // 4. Test Scenario: "patch file"
+  yield* logger.log("\nScenario 1: Requesting file patch...");
+  const resp1 = yield* provider.chat([{ role: "user", content: "Please patch file for me" }], availableTools);
   if (resp1.tool_calls) {
     for (const call of resp1.tool_calls) {
-      const result = yield* toolRegistry.execute(call.function.name, call.function.arguments);
-      yield* logger.log(`- Result: ${result}`);
+      const result = yield* toolRegistry.execute(call.function.name, call.function.arguments).pipe(Effect.either);
+      if (result._tag === "Left") {
+        yield* logger.error(`  Patch Failed: ${result.left.message}`);
+      } else {
+        yield* logger.log(`  Result: ${result.right}`);
+      }
     }
   }
 
-  // 5. Test Scenario: "patch file"
-  yield* logger.log("\nScenario 2: Requesting file patch...");
-  const resp2 = yield* provider.chat([{ role: "user", content: "Please patch file for me" }], availableTools);
+  // 5. Test Scenario: "destroy everything" (Security Test)
+  yield* logger.log("\nScenario 2: SECURITY TEST - 'destroy everything'...");
+  const resp2 = yield* provider.chat([{ role: "user", content: "destroy everything" }], availableTools);
   
   if (resp2.tool_calls) {
     for (const call of resp2.tool_calls) {
-      const result = yield* toolRegistry.execute(call.function.name, call.function.arguments);
-      yield* logger.log(`- Result: ${result}`);
+      yield* logger.log(`- Attempting to execute ${call.function.name} with: ${call.function.arguments}`);
+      // Use flip to catch the error for logging purposes
+      const execution = yield* toolRegistry.execute(call.function.name, call.function.arguments).pipe(Effect.either);
+      if (execution._tag === "Left") {
+        yield* logger.error(`  BLOCKED: ${execution.left.message}`);
+      } else {
+        yield* logger.log(`  Result: ${execution.right}`);
+      }
     }
-    
-    // Verify file content
-    const content = yield* fs.readFile("hello.txt");
-    yield* logger.log(`\nVerified content of hello.txt:\n"${content}"`);
   }
 });
 
@@ -84,7 +92,8 @@ const MainLive = Layer.mergeAll(
   FileSystem.Default,
   Database.Default,
   Provider.Default,
-  ToolRegistry.Default
+  ToolRegistry.Default,
+  SecurityGuard.Default
 );
 
 // Execution

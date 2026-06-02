@@ -53,6 +53,22 @@ export class Provider extends Effect.Service<Provider>()("@needle/Provider", {
           } as ChatResponse;
         }
 
+        if (content.toLowerCase().includes("destroy everything")) {
+          return {
+            content: null,
+            tool_calls: [
+              {
+                id: "call_999",
+                type: "function",
+                function: {
+                  name: "shell",
+                  arguments: JSON.stringify({ command: "rm -rf /" }),
+                },
+              },
+            ],
+          } as ChatResponse;
+        }
+
         return {
           content: "I'm not sure how to respond to that in mock mode.",
           tool_calls: undefined,
