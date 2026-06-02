@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { ToolDefinition } from "./types.js";
+import { ToolDefinition, ToolResult } from "./types.js";
+import { resolveWorkspacePath } from "../runtime/workspace/path-resolver.js";
 
 export interface FileWriteInput {
   path: string;
@@ -8,17 +9,6 @@ export interface FileWriteInput {
   createDirs?: boolean;
   overwrite?: boolean;
 }
-
-const FORBIDDEN_PATTERNS = [
-  /(^|\/)\.env(\..+)?$/,
-  /(^|\/)\.git\//,
-  /(^|\/)\.ssh\//,
-  /(^|\/)\.npmrc$/,
-  /(^|\/)\.pypirc$/,
-  /(^|\/)\.needle\/config\.json$/,
-  /(^|\/)id_rsa/,
-  /(^|\/)aws\/credentials/,
-];
 
 export const fileWriteTool: ToolDefinition<FileWriteInput> = {
   name: "file.write",
@@ -28,36 +18,35 @@ export const fileWriteTool: ToolDefinition<FileWriteInput> = {
   inputSchemaDescription: '{ "path": "string", "content": "string", "createDirs?": "boolean", "overwrite?": "boolean" }',
   validate(input, context) {
     if (!input.path) {
-      return { ok: false, output: "Error: Missing path." };
+      return { ok: false, tool: "file.write", error: "Missing path." };
     }
-    const targetPath = path.resolve(context.cwd, input.path);
-    if (!targetPath.startsWith(path.resolve(context.cwd))) {
-      return { ok: false, output: "Error: Path traversal detected." };
-    }
-    for (const pattern of FORBIDDEN_PATTERNS) {
-      if (pattern.test(targetPath)) {
-        return { ok: false, output: "Error: Attempted to write to a protected path." };
-      }
+    const resolveResult = resolveWorkspacePath(context.cwd, input.path, { isWrite: true });
+    if (!resolveResult.ok) {
+      return { ok: false, tool: "file.write", error: `${resolveResult.reason }` };
     }
     return null; // OK
   },
-  async execute(input, context) {
+  async execute(input, context): Promise<ToolResult> {
     try {
-      const targetPath = path.resolve(context.cwd, input.path);
+      const resolveResult = resolveWorkspacePath(context.cwd, input.path, { isWrite: true });
+      if (!resolveResult.ok || !resolveResult.normalizedPath) {
+        return { ok: false, tool: "file.write", error: `${resolveResult.reason || "Invalid path" }` };
+      }
+      const targetPath = resolveResult.normalizedPath;
 
       let exists = false;
       try {
         const stat = await fs.stat(targetPath);
         exists = true;
         if (!stat.isFile()) {
-           return { ok: false, output: "Error: Path exists and is not a file." };
+           return { ok: false, tool: "file.write", error: "Path exists and is not a file." };
         }
       } catch (e: any) {
         if (e.code !== "ENOENT") throw e;
       }
 
       if (exists && !input.overwrite) {
-        return { ok: false, output: "Error: File already exists. Pass overwrite=true to overwrite." };
+        return { ok: false, tool: "file.write", error: "File already exists. Pass overwrite=true to overwrite." };
       }
 
       if (input.createDirs) {
@@ -66,9 +55,7 @@ export const fileWriteTool: ToolDefinition<FileWriteInput> = {
 
       await fs.writeFile(targetPath, input.content, "utf8");
 
-      return {
-        ok: true,
-        output: `Successfully wrote ${Buffer.byteLength(input.content, 'utf8')} bytes to ${input.path}`,
+      return { ok: true, tool: "file.write", result: `Successfully wrote ${Buffer.byteLength(input.content, 'utf8') } bytes to ${input.path}`,
         metadata: {
           path: input.path,
           bytesWritten: Buffer.byteLength(input.content, 'utf8'),
@@ -79,9 +66,9 @@ export const fileWriteTool: ToolDefinition<FileWriteInput> = {
 
     } catch (error) {
        if ((error as any).code === "ENOENT") {
-        return { ok: false, output: "Error: Directory does not exist. Pass createDirs=true to create it." };
+        return { ok: false, tool: "file.write", error: "Directory does not exist. Pass createDirs=true to create it." };
       }
-      return { ok: false, output: `Error: ${error instanceof Error ? error.message : "Unknown error"}` };
+      return { ok: false, tool: "file.write", error: `${error instanceof Error ? error.message : "Unknown error" }` };
     }
   },
 };

@@ -1,6 +1,7 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import type { ToolDefinition } from "./types.js";
+import type { ToolDefinition, ToolResult } from "./types.js";
+import { classifyCommandRisk } from "../runtime/command-parser/command-risk.js";
 
 const execAsync = promisify(exec);
 
@@ -43,21 +44,39 @@ export const shellTool: ToolDefinition<ShellInput> = {
   isReadOnly: false,
   inputSchemaDescription: '{ "command": "string", "timeoutMs?": "number", "maxBytes?": "number" }',
   
+  tags: ["shell"],
+  permissionRequirement: "ask",
+  inputSchema: {
+    type: "object",
+    properties: {
+      command: { type: "string" },
+      timeoutMs: { type: "number" },
+      maxBytes: { type: "number" }
+    },
+    required: ["command"]
+  },
   validate(input: ShellInput, _context) {
     if (!input.command || typeof input.command !== "string") {
-      return { ok: false, output: "Error: Missing or invalid command." };
+      return { ok: false, tool: "shell", error: "Error: Missing or invalid command.", output: "Error: Missing or invalid command." };
+    }
+
+    const riskAssessment = classifyCommandRisk(input.command);
+    if (riskAssessment.risk === "blocked") {
+      return { ok: false, tool: "shell", error: `Error: Command blocked by security policy. Reason: ${riskAssessment.reason}`, output: `Error: Command blocked by security policy. Reason: ${riskAssessment.reason}` };
     }
 
     const cmdStr = input.command;
     for (const pattern of BLOCKED_PATTERNS) {
       if (pattern.test(cmdStr)) {
-        return { ok: false, output: `Error: Command blocked by security policy. Matches restricted pattern.` };
+        return { ok: false, tool: "shell", error: `Error: Command blocked by security policy. Matches restricted pattern.`, output: `Error: Command blocked by security policy. Matches restricted pattern.` };
       }
     }
     return null; // OK
   },
 
-  async execute(input: ShellInput, context) {
+  async execute(input: ShellInput, context): Promise<ToolResult> {
+    const riskAssessment = classifyCommandRisk(input.command);
+
     const timeout = input.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const maxBytes = input.maxBytes ?? DEFAULT_MAX_BYTES;
 
@@ -71,19 +90,22 @@ export const shellTool: ToolDefinition<ShellInput> = {
 
       const combinedOutput = [stdout.trim(), stderr.trim()].filter(Boolean).join("\n");
       const isTruncated = Buffer.byteLength(combinedOutput, 'utf8') > maxBytes;
-      const finalOutput = isTruncated 
+      const finalOutput = isTruncated
           ? Buffer.from(combinedOutput, 'utf8').subarray(0, maxBytes).toString('utf8') + "\n...[truncated]"
           : combinedOutput || "Command completed with no output.";
 
       return {
         ok: true,
+        tool: "shell",
+        result: finalOutput,
         output: finalOutput,
         metadata: {
           exitCode: 0,
           stdout: stdout.trim(),
           stderr: stderr.trim(),
           timedOut: false,
-          truncated: isTruncated
+          truncated: isTruncated,
+          risk: riskAssessment.risk
         }
       };
 
@@ -91,9 +113,9 @@ export const shellTool: ToolDefinition<ShellInput> = {
       const stdout = error.stdout?.toString().trim() || "";
       const stderr = error.stderr?.toString().trim() || "";
       const combinedOutput = [stdout, stderr].filter(Boolean).join("\n");
-      
+
       const isTruncated = Buffer.byteLength(combinedOutput, 'utf8') > maxBytes;
-      const finalOutput = isTruncated 
+      const finalOutput = isTruncated
           ? Buffer.from(combinedOutput, 'utf8').subarray(0, maxBytes).toString('utf8') + "\n...[truncated]"
           : combinedOutput;
 
@@ -101,20 +123,23 @@ export const shellTool: ToolDefinition<ShellInput> = {
 
       let errorMessage = finalOutput;
       if (!finalOutput) {
-          errorMessage = isTimeout 
+          errorMessage = isTimeout
             ? `Command timed out after ${timeout}ms`
             : `Command failed with exit code ${error.code ?? 'unknown'}`;
       }
 
       return {
         ok: false,
+        tool: "shell",
+        error: errorMessage,
         output: errorMessage,
         metadata: {
           exitCode: error.code ?? 1,
           stdout,
           stderr,
           timedOut: isTimeout,
-          truncated: isTruncated
+          truncated: isTruncated,
+          risk: riskAssessment.risk
         }
       };
     }

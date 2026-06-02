@@ -1,18 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { ToolDefinition } from "./types.js";
+import { ToolDefinition, ToolResult } from "./types.js";
+import { resolveWorkspacePath } from "../runtime/workspace/path-resolver.js";
 
 export interface FileReadInput {
   path: string;
   maxBytes?: number;
 }
-
-const FORBIDDEN_PATTERNS = [
-  /(^|\/)\.env(\..+)?$/,
-  /(^|\/)\.git\//,
-  /(^|\/)id_rsa/,
-  /(^|\/)aws\/credentials/,
-];
 
 export const fileReadTool: ToolDefinition<FileReadInput> = {
   name: "file.read",
@@ -20,22 +14,27 @@ export const fileReadTool: ToolDefinition<FileReadInput> = {
   riskLevel: "low",
   isReadOnly: true,
   inputSchemaDescription: '{ "path": "string", "maxBytes?": "number" }',
-  async execute(input, context) {
+  validate(input, context) {
+    if (!input.path) {
+      return { ok: false, tool: "file.read", error: "Missing path." };
+    }
+    const resolveResult = resolveWorkspacePath(context.cwd, input.path, { isWrite: false });
+    if (!resolveResult.ok) {
+      return { ok: false, tool: "file.read", error: `${resolveResult.reason }` };
+    }
+    return null;
+  },
+  async execute(input, context): Promise<ToolResult> {
     try {
-      const targetPath = path.resolve(context.cwd, input.path);
-      if (!targetPath.startsWith(path.resolve(context.cwd))) {
-        return { ok: false, output: "Error: Path traversal detected." };
+      const resolveResult = resolveWorkspacePath(context.cwd, input.path, { isWrite: false });
+      if (!resolveResult.ok || !resolveResult.normalizedPath) {
+        return { ok: false, tool: "file.read", error: `${resolveResult.reason || "Invalid path" }` };
       }
-
-      for (const pattern of FORBIDDEN_PATTERNS) {
-        if (pattern.test(targetPath)) {
-          return { ok: false, output: "Error: Attempted to read a forbidden file." };
-        }
-      }
+      const targetPath = resolveResult.normalizedPath;
 
       const stat = await fs.stat(targetPath);
       if (!stat.isFile()) {
-        return { ok: false, output: "Error: Path is not a file." };
+        return { ok: false, tool: "file.read", error: "Path is not a file." };
       }
 
       const maxBytes = input.maxBytes ?? 64 * 1024;
@@ -50,7 +49,8 @@ export const fileReadTool: ToolDefinition<FileReadInput> = {
       if (stat.size > maxBytes) {
         return {
           ok: true,
-          output,
+          tool: "file.read",
+          result: output,
           metadata: {
             truncated: true,
             bytesRead,
@@ -61,7 +61,8 @@ export const fileReadTool: ToolDefinition<FileReadInput> = {
 
       return {
         ok: true,
-        output,
+        tool: "file.read",
+        result: output,
         metadata: {
           truncated: false,
           bytesRead,
@@ -70,9 +71,9 @@ export const fileReadTool: ToolDefinition<FileReadInput> = {
       };
     } catch (error) {
       if ((error as any).code === "ENOENT") {
-        return { ok: false, output: "Error: File not found." };
+        return { ok: false, tool: "file.read", error: "File not found." };
       }
-      return { ok: false, output: `Error: ${error instanceof Error ? error.message : "Unknown error"}` };
+      return { ok: false, tool: "file.read", error: `${error instanceof Error ? error.message : "Unknown error" }` };
     }
   },
 };

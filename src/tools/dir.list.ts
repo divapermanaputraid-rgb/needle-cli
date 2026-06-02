@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { ToolDefinition } from "./types.js";
+import { ToolDefinition, ToolResult } from "./types.js";
+import { resolveWorkspacePath } from "../runtime/workspace/path-resolver.js";
 
 export interface DirListInput {
   path: string;
@@ -14,25 +15,26 @@ export const dirListTool: ToolDefinition<DirListInput> = {
   inputSchemaDescription: '{ "path": "string" }',
   validate(input, context) {
     if (!input.path) {
-      return { ok: false, output: "Error: Missing path." };
+      return { ok: false, tool: "dir.list", error: "Missing path." };
     }
-    const targetPath = path.resolve(context.cwd, input.path);
-    if (!targetPath.startsWith(path.resolve(context.cwd))) {
-      return { ok: false, output: "Error: Path traversal detected." };
+    const resolveResult = resolveWorkspacePath(context.cwd, input.path, { isWrite: false });
+    if (!resolveResult.ok) {
+      return { ok: false, tool: "dir.list", error: `${resolveResult.reason }` };
     }
     return null;
   },
-  async execute(input, context) {
+  async execute(input, context): Promise<ToolResult> {
     try {
-      const targetPath = path.resolve(context.cwd, input.path);
+      const resolveResult = resolveWorkspacePath(context.cwd, input.path, { isWrite: false });
+      if (!resolveResult.ok || !resolveResult.normalizedPath) {
+        return { ok: false, tool: "dir.list", error: `${resolveResult.reason || "Invalid path" }` };
+      }
+      const targetPath = resolveResult.normalizedPath;
       const entries = await fs.readdir(targetPath, { withFileTypes: true });
       const list = entries.map(e => `${e.isDirectory() ? '[DIR] ' : '[FILE] '}${e.name}`);
-      return {
-        ok: true,
-        output: list.join('\n') || "(empty directory)",
-      };
+      return { ok: true, tool: "dir.list", result: list, metadata: { count: list.length } };
     } catch (e: any) {
-      return { ok: false, output: `Error: ${e instanceof Error ? e.message : "Unknown error"}` };
+      return { ok: false, tool: "dir.list", error: `${e instanceof Error ? e.message : "Unknown error" }` };
     }
   },
 };

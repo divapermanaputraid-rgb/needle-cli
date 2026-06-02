@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { ToolDefinition } from "./types.js";
+import { ToolDefinition, ToolResult } from "./types.js";
+import { resolveWorkspacePath } from "../runtime/workspace/path-resolver.js";
 
 export interface FileEditInput {
   path: string;
@@ -8,17 +9,6 @@ export interface FileEditInput {
   replace: string;
   replaceAll?: boolean;
 }
-
-const FORBIDDEN_PATTERNS = [
-  /(^|\/)\.env(\..+)?$/,
-  /(^|\/)\.git\//,
-  /(^|\/)\.ssh\//,
-  /(^|\/)\.npmrc$/,
-  /(^|\/)\.pypirc$/,
-  /(^|\/)\.needle\/config\.json$/,
-  /(^|\/)id_rsa/,
-  /(^|\/)aws\/credentials/,
-];
 
 export const fileEditTool: ToolDefinition<FileEditInput> = {
   name: "file.edit",
@@ -30,24 +20,23 @@ export const fileEditTool: ToolDefinition<FileEditInput> = {
     if (!input.path) {
       return { ok: false, output: "Error: Missing path." };
     }
-    const targetPath = path.resolve(context.cwd, input.path);
-    if (!targetPath.startsWith(path.resolve(context.cwd))) {
-      return { ok: false, output: "Error: Path traversal detected." };
-    }
-    for (const pattern of FORBIDDEN_PATTERNS) {
-      if (pattern.test(targetPath)) {
-        return { ok: false, output: "Error: Attempted to edit a protected path." };
-      }
+    const resolveResult = resolveWorkspacePath(context.cwd, input.path, { isWrite: true });
+    if (!resolveResult.ok) {
+      return { ok: false, output: `Error: ${resolveResult.reason}` };
     }
     return null; // OK
   },
-  async execute(input, context) {
+  async execute(input, context): Promise<ToolResult> {
     try {
       if (!input.search) {
         return { ok: false, output: "Error: Missing search string." };
       }
 
-      const targetPath = path.resolve(context.cwd, input.path);
+      const resolveResult = resolveWorkspacePath(context.cwd, input.path, { isWrite: true });
+      if (!resolveResult.ok || !resolveResult.normalizedPath) {
+        return { ok: false, output: `Error: ${resolveResult.reason || "Invalid path"}` };
+      }
+      const targetPath = resolveResult.normalizedPath;
 
       const stat = await fs.stat(targetPath);
       if (!stat.isFile()) {

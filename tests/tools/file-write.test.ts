@@ -15,7 +15,7 @@ describe("file.write tool", () => {
 
     const result = await fileWriteTool.execute(
       { path: filePath, content: "hello world" },
-      dummyContext
+      { cwd: tmpDir } as ToolContext
     );
 
     assert.strictEqual(result.ok, true);
@@ -29,12 +29,12 @@ describe("file.write tool", () => {
   it("blocks writing to .env", async () => {
     const validation = fileWriteTool.validate?.({ path: ".env", content: "secret" }, dummyContext);
     assert.ok(validation);
-    assert.match(validation.output, /protected/i);
+    assert.match(String(validation.error), /sensitive file/i);
   });
 
   it("blocks writing outside workspace", async () => {
     const validation = fileWriteTool.validate?.({ path: "../outside.txt", content: "data" }, dummyContext);
     assert.ok(validation);
-    assert.match(validation.output, /traversal/i);
+    assert.match(String(validation.error), /traversal/i);
   });
 });
