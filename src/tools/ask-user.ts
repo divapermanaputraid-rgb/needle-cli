@@ -16,6 +16,13 @@ export const askUserQuestionTool: ToolDefinition<AskUserQuestionInput> = {
       return { ok: false, output: "Missing 'question' in input." };
     }
 
+    if (!process.stdin.isTTY) {
+      return { 
+        ok: false, 
+        output: "Execution environment is non-interactive (no TTY). Cannot ask human for input. Proceed using your best judgment or fail safely."
+      };
+    }
+
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,

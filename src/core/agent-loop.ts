@@ -99,15 +99,23 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     let parsedArray: any[] = [];
     try {
       // Find all JSON blocks in the response. Model might mix text and JSON.
-      const jsonBlocks = response.content.match(/```json\n([\s\S]*?)\n```/g);
+      // Refined: Tolerates whitespace and missing 'json' tags after backticks
+      const jsonBlocks = response.content.match(/```(?:json)?\s*([\s\S]*?)\s*```/g);
       if (jsonBlocks && jsonBlocks.length > 0) {
         for (const block of jsonBlocks) {
-          const raw = block.replace(/```json\n/, '').replace(/\n```$/, '');
-          parsedArray.push(JSON.parse(raw));
+          const raw = block.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
+          try {
+             parsedArray.push(JSON.parse(raw));
+          } catch (e) {
+             // Ignore single bad block if others are valid, let LLM loop handle it
+             errors.push(`Warning: skipping a malformed JSON block: ${e instanceof Error ? e.message : String(e)}`);
+          }
         }
-      } else {
-        // Fallback: try parse entire response if no codeblocks found
-        parsedArray = [JSON.parse(response.content)];
+      } 
+      
+      // Fallback: try parse entire response if no codeblocks found or parsing blocks failed
+      if (parsedArray.length === 0) {
+        parsedArray = [JSON.parse(response.content.trim())];
       }
     } catch (err) {
       if (hasPseudoCommands) {
