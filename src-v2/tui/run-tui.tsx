@@ -57,8 +57,8 @@ const TuiRuntime = () => {
       }
 
       // Initialize Tools (for MVP, ensure they are registered)
-      yield* toolRegistry.register(applyPatchTool, applyPatchHandler);
-      yield* toolRegistry.register(shellTool, shellHandler);
+      yield* toolRegistry.register(applyPatchTool, applyPatchHandler as any);
+      yield* toolRegistry.register(shellTool, shellHandler as any);
       
       const mcpClient = yield* McpClient;
       yield* toolRegistry.registerMcpClient(mcpClient);
@@ -72,11 +72,11 @@ const TuiRuntime = () => {
       if (response.tool_calls) {
         for (const call of response.tool_calls) {
           setStatus(`Executing ${call.function.name}...`);
-          const result = yield* Effect.either(toolRegistry.execute(call.function.name, call.function.arguments));
+          const result: any = yield* Effect.either(toolRegistry.execute(call.function.name, call.function.arguments) as any);
           if (result._tag === "Left") {
-            addLog(`BLOCKED/FAILED: ${result.left.message}`);
+            addLog(`BLOCKED/FAILED: ${result.left.message || result.left}`);
           } else {
-            addLog(result.right);
+            addLog(String(result.right));
           }
         }
       } else if (response.content) {
@@ -88,7 +88,7 @@ const TuiRuntime = () => {
 
     try {
       // Execute with the merged global layer
-      await Effect.runPromise(Effect.provide(program, MainLive));
+      await Effect.runPromise(Effect.provide(program as any, MainLive));
     } catch (e) {
       addLog(`CRASH: ${e}`);
       setStatus("Error");

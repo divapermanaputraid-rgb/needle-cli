@@ -14,13 +14,14 @@ import { McpClient } from "./core/mcp.js";
 // Main program logic
 const program = Effect.gen(function* () {
   const logger = yield* Logger;
-  const config = yield* ConfigProvider;
+  const configProvider = yield* ConfigProvider;
+  const config = yield* configProvider.getConfig();
   const db = yield* Database;
   const provider = yield* Provider;
   const toolRegistry = yield* ToolRegistry;
   const fs = yield* FileSystem;
   const mcpClient = yield* McpClient;
-  
+
   yield* logger.log("Needle v2 Effect Runtime Initialized");
   yield* logger.log(`Working directory: ${config.cwd}`);
 
@@ -42,15 +43,15 @@ const program = Effect.gen(function* () {
     }
   };
 
-  yield* toolRegistry.register(fileWriteTool, (args: { path: string, content: string }) => 
+  yield* toolRegistry.register(fileWriteTool, ((args: { path: string, content: string }) =>
     Effect.gen(function* () {
       yield* fs.writeFile(args.path, args.content);
       return `Successfully wrote file ${args.path}`;
-    })
+    })) as any
   );
 
-  yield* toolRegistry.register(applyPatchTool, applyPatchHandler);
-  yield* toolRegistry.register(shellTool, shellHandler);
+  yield* toolRegistry.register(applyPatchTool, applyPatchHandler as any);
+  yield* toolRegistry.register(shellTool, shellHandler as any);
 
   // 3. Create a persistent session
   const sessionId = yield* db.createSession("Full Integration Test");
@@ -63,10 +64,10 @@ const program = Effect.gen(function* () {
   // 5. Scenario: "search github" (MCP Test)
   yield* logger.log("\nScenario: MCP TEST - 'search github'...");
   const mcpResp = yield* provider.chat([{ role: "user", content: "search github" }], availableTools);
-  
+
   if (mcpResp.tool_calls) {
     for (const call of mcpResp.tool_calls) {
-      const result = yield* toolRegistry.execute(call.function.name, call.function.arguments);
+      const result = yield* (toolRegistry.execute(call.function.name, call.function.arguments) as any);
       yield* logger.log(`  Result: ${result}`);
     }
   }
@@ -85,7 +86,7 @@ const MainLive = Layer.mergeAll(
 );
 
 // Execution
-Effect.runPromise(Effect.provide(program, MainLive)).catch((error) => {
+Effect.runPromise(Effect.provide(program as any, MainLive)).catch((error) => {
   console.error("Initialization Failed:", error);
   process.exit(1);
 });
