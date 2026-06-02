@@ -14,6 +14,8 @@ import { enterPlanModeTool } from "./enter-plan-mode.js";
 import { exitPlanModeTool } from "./exit-plan-mode.js";
 import { webFetchTool } from "./web-fetch.js";
 import { webSearchTool } from "./web-search.js";
+import { enterGitWorktreeTool, exitGitWorktreeTool } from "./git-worktree.js";
+import { delegateTaskTool } from "./delegate-task.js";
 
 export class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
@@ -63,5 +65,8 @@ export function createDefaultToolRegistry(): ToolRegistry {
   registry.register(exitPlanModeTool);
   registry.register(webFetchTool);
   registry.register(webSearchTool);
+  registry.register(enterGitWorktreeTool);
+  registry.register(exitGitWorktreeTool);
+  registry.register(delegateTaskTool);
   return registry;
 }
