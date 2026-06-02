@@ -21,7 +21,7 @@ export class ConfigProvider extends Context.Tag("@needle/ConfigProvider")<
       cwd: process.cwd(),
       smartModel: "gpt-4o",
       coderModel: "claude-3-5-sonnet-20241022",
-      isYoloMode: true,
+      isYoloMode: false,
     };
 
     return {

@@ -12,6 +12,7 @@ import { toolsCommand } from "./commands/tools.js";
 import { sessionsCommand } from "./commands/sessions.js";
 import { reflectCommand } from "./commands/reflect.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { experimentalCommand } from "./commands/experimental.js";
 import { startInteractiveShell } from "../ui/interactive/index.js";
 
 const program = new Command();
@@ -32,15 +33,28 @@ program.addCommand(toolsCommand);
 program.addCommand(sessionsCommand());
 program.addCommand(reflectCommand());
 program.addCommand(doctorCommand);
+program.addCommand(experimentalCommand);
 
-// If no arguments provided, launch the interactive shell
-if (process.argv.length <= 2) {
-  console.log("\x1b[35m%s\x1b[0m", "\n[ Needle v2 (Super Agent Mode) Activated ]\n");
-  // Launch the new v2 TUI architecture
-  import("../../src-v2/tui/run-tui.js").catch((err) => {
-    console.error("Failed to start Needle v2 TUI:", err);
-    process.exit(1);
-  });
-} else {
-  program.parse(process.argv);
+export function resolveCliEntrypoint(args: string[]): "interactive" | "commander" {
+  if (args.length <= 2) {
+    return "interactive";
+  }
+  return "commander";
 }
+
+// Only execute if run directly (not imported in tests)
+const isMain = import.meta.url ? import.meta.url === `file://${process.argv[1]}` : require.main === module;
+
+if (isMain) {
+  const route = resolveCliEntrypoint(process.argv);
+  if (route === "interactive") {
+    startInteractiveShell().catch((err: unknown) => {
+      console.error("Failed to start interactive shell:", err);
+      process.exit(1);
+    });
+  } else {
+    program.parse(process.argv);
+  }
+}
+
+export { program };

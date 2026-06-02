@@ -17,7 +17,7 @@ describe("experimentation and delegation tools", () => {
     it("returns mock success message", async () => {
       const result = await delegateTaskTool.execute({ task: "test task", context: "test context" }, dummyContext);
       assert.strictEqual(result.ok, true);
-      assert.match(result.output, /delegated successfully/i);
+      assert.match(result.output, /The subagent completed the task successfully/i);
     });
   });
 
@@ -38,13 +38,13 @@ describe("experimentation and delegation tools", () => {
       assert.strictEqual(enterResult.ok, true);
       assert.match(enterResult.output, /created successfully/i);
       
-      const worktreePath = enterResult.metadata?.worktreePath as string;
+      const worktreePath = path.resolve(dummyContext.cwd, "../.needle/worktrees", branchName);
       assert.ok(await fs.stat(worktreePath).then(s => s.isDirectory()).catch(() => false));
 
       // Exit (merge: false)
       const exitResult = await exitGitWorktreeTool.execute({ branchName, merge: false }, dummyContext);
       assert.strictEqual(exitResult.ok, true);
-      assert.match(exitResult.output, /removed successfully/i);
+      assert.match(exitResult.output, /cleanup completed successfully/i);
       
       // Verify cleanup
       assert.ok(!(await fs.stat(worktreePath).catch(() => null)));
