@@ -45,3 +45,5 @@ Thumbs.db
 .needle/
 docs/
 
+# Testing scripts
+*.exp

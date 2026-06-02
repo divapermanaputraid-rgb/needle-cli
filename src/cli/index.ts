@@ -14,6 +14,7 @@ import { reflectCommand } from "./commands/reflect.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { experimentalCommand } from "./commands/experimental.js";
 import { startInteractiveShell } from "../ui/interactive/index.js";
+import { loadLocalSecrets } from "../ui/interactive/secrets.js";
 
 const program = new Command();
 
@@ -46,6 +47,7 @@ export function resolveCliEntrypoint(args: string[]): "interactive" | "commander
 const isMain = import.meta.url ? import.meta.url === `file://${process.argv[1]}` : require.main === module;
 
 if (isMain) {
+  loadLocalSecrets(process.cwd());
   const route = resolveCliEntrypoint(process.argv);
   if (route === "interactive") {
     startInteractiveShell().catch((err: unknown) => {
