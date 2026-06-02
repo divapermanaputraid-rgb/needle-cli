@@ -3,13 +3,14 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { NeedleConfig } from "../../config/schema.js";
 import { ProviderRouter } from "../../providers/router.js";
-import { ModelProfile } from "../../providers/types.js";
+import { ModelProfile, ChatMessage } from "../../providers/types.js";
 import { SessionState } from "./session-state.js";
 import { TaskIntent } from "./task-normalizer.js";
 
 export interface DocumentationRunnerOptions {
   input: string;
   cwd: string;
+  history: ChatMessage[];
   config: NeedleConfig;
   router: ProviderRouter;
   targetProfile: ModelProfile;
@@ -19,7 +20,7 @@ export interface DocumentationRunnerOptions {
   intent: TaskIntent;
 }
 
-export async function runDocumentation(options: DocumentationRunnerOptions): Promise<void> {
+export async function runDocumentation(options: DocumentationRunnerOptions): Promise<{ summary: string } | undefined> {
   const { input, cwd, config, router, targetProfile, providerId, rl, sessionState, intent } = options;
   const yellow = "\x1b[33m";
   const red = "\x1b[31m";
@@ -37,7 +38,7 @@ export async function runDocumentation(options: DocumentationRunnerOptions): Pro
        targetFile = path.join(targetDir, "README.md");
      } else {
        console.log("I am not sure where to create the documentation. Please specify a folder or file.");
-       return;
+       return undefined;
      }
   }
 
@@ -47,7 +48,7 @@ export async function runDocumentation(options: DocumentationRunnerOptions): Pro
 
   if (!targetFile) {
      console.log("Could not determine target file.");
-     return;
+     return undefined;
   }
 
   // 2. Ask confirmation
@@ -63,7 +64,7 @@ export async function runDocumentation(options: DocumentationRunnerOptions): Pro
 
   if (confirm.toLowerCase() !== "y" && confirm !== "") {
     console.log("Cancelled.");
-    return;
+    return undefined;
   }
 
   console.log("\nRunning documentation task...");
@@ -127,7 +128,7 @@ Be detailed and professional.`;
     content = response.content;
   } catch (e: any) {
     console.log(`${red}Failed to generate documentation: ${e.message}${reset}`);
-    return;
+    return undefined;
   }
 
   // Strip markdown blocks if they exist
@@ -158,7 +159,7 @@ Be detailed and professional.`;
       output: `Failed to write documentation: ${e.message}`
     });
     console.log(`- file.write {"path":"${targetFile}"} ${red}FAILED${reset}`);
-    return;
+    return undefined;
   }
 
   // 6. Verify file exists
@@ -174,5 +175,7 @@ Be detailed and professional.`;
   const status = exists ? `${green}OK${reset}` : `${red}FAILED (Missing)${reset}`;
   console.log(`- ${targetFile} exists ${status}`);
 
-  console.log(`\nDone:\nCreated documentation at ${targetFile}.`);
+  const summary = `Created documentation at ${targetFile}.`;
+  console.log(`\nDone:\n${summary}`);
+  return { summary };
 }

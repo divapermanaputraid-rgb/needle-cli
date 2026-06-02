@@ -1,216 +1,658 @@
 <div align="center">
-  <img src="assets/needle-wordmark.png" alt="Needle Logo" width="300" />
+  <img src="assets/needle-hero.png" alt="Needle - terminal-first AI coding agent" width="100%" />
 
-  <p><strong>Open-source, multi-provider AI coding CLI</strong></p>
+  <br />
+
+  <p>
+    <strong>A terminal-first AI coding agent that threads through your codebase.</strong>
+  </p>
+
+  <p>
+    <a href="https://www.npmjs.com/package/needle-cli">
+      <img src="https://img.shields.io/npm/v/needle-cli?style=flat-square&color=4F7CFF" alt="npm version" />
+    </a>
+    <a href="https://www.npmjs.com/package/needle-cli">
+      <img src="https://img.shields.io/npm/dm/needle-cli?style=flat-square&color=36E4C6" alt="npm downloads" />
+    </a>
+    <a href="./LICENSE">
+      <img src="https://img.shields.io/badge/license-MIT-7C5CFF?style=flat-square" alt="license" />
+    </a>
+    <img src="https://img.shields.io/badge/terminal-first-4F7CFF?style=flat-square" alt="terminal first" />
+    <img src="https://img.shields.io/badge/multi--provider-36E4C6?style=flat-square" alt="multi provider" />
+    <img src="https://img.shields.io/badge/status-beta-F59E0B?style=flat-square" alt="beta" />
+  </p>
+
+  <p>
+    <a href="#install">Install</a>
+    ·
+    <a href="#quickstart">Quickstart</a>
+    ·
+    <a href="#features">Features</a>
+    ·
+    <a href="#commands">Commands</a>
+    ·
+    <a href="#providers">Providers</a>
+    ·
+    <a href="#roadmap">Roadmap</a>
+  </p>
 </div>
 
-Needle is an autonomous, terminal-native AI coding assistant. It integrates directly with your codebase, reads your files, executes commands, and writes code.
+---
 
-Designed to be lightweight and fast, Needle brings the power of Agentic AI to your command line, supporting multiple model providers.
+## Needle
+
+**Needle** is an open-source, terminal-native AI coding CLI.
+
+It reads your codebase, plans changes, edits files, runs commands, reviews diffs, and keeps project memory close to your repository. It is built for developers who want an agentic coding workflow without leaving the terminal.
+
+```bash
+needle code "Refactor the authentication middleware"
+```
+
+```txt
+$ needle
+> scan repo
+✓ plan
+✓ patch
+✓ review
+✓ remember
+```
+
+Needle is designed to be lightweight, provider-agnostic, and safe by default.
+
+## Why Needle?
+
+Most AI coding tools are either locked into one editor, tied to one model provider, or too heavy for quick terminal work.
+
+Needle focuses on a smaller, sharper workflow:
+
+- terminal-first AI coding
+- multi-provider model routing
+- project-aware code editing
+- persistent project memory
+- safe tool execution
+- reviewable file changes
+- spec-first planning before implementation
+
+The goal is not to replace your editor.
+
+The goal is to make your terminal a better coding partner.
 
 ## Features
 
-- **Agentic Loop**: Think -> Plan -> Act loop for reliable code generation and problem-solving.
-- **Project Memory**: Maintains persistent project context at `.needle/MEMORY.md`.
-- **Session History**: Resumable conversation sessions.
-- **Multi-Provider**: Use OpenRouter, 9Router, OpenAI-compatible APIs, DeepSeek, or Gemini.
-- **Built-in Tools**: File read/write, git integration, semantic search, and shell execution.
-- **Safety First**: Configurable permission modes (`ask`, `auto`, `dry-run`) to keep you in control.
+### Agentic coding loop
+
+Needle uses a simple agentic loop:
+
+```txt
+think → plan → act → observe → refine
+```
+
+It can inspect your project, choose tools, edit files, run commands, and continue based on the result.
+
+### Project memory
+
+Needle stores long-term project context in:
+
+```txt
+.needle/MEMORY.md
+```
+
+Use memory to preserve architecture decisions, conventions, TODOs, previous fixes, and project-specific rules.
+
+```bash
+needle reflect
+```
+
+### Multi-provider support
+
+Use your preferred model provider instead of being locked into one platform.
+
+Supported provider targets:
+
+- 9Router
+- OpenRouter
+- OpenAI-compatible APIs
+- Gemini
+- DeepSeek
+- local or self-hosted compatible endpoints
+
+### Built-in tools
+
+Needle gives the agent practical development tools:
+
+- file read
+- file write
+- file edit
+- shell execution
+- glob search
+- grep search
+- git diff
+- project memory
+- session history
+
+### Safety-first permissions
+
+Needle can modify files and execute commands, so permission modes are built in.
+
+```bash
+needle code "Update dependencies" --mode ask
+```
+
+Permission modes:
+
+| Mode      | Behavior                                               |
+| --------- | ------------------------------------------------------ |
+| `ask`     | Default. Ask before running commands or writing files. |
+| `auto`    | Run safe actions automatically, ask for risky actions. |
+| `dry-run` | Show intended actions without applying them.           |
+
+### PRD mode
+
+Turn a rough idea into a clear Product Requirements Document before writing code.
+
+```bash
+needle prd
+```
+
+Needle will interview you, ask important product and technical questions, then generate a reviewable PRD inside your workspace.
+
+Example:
+
+```txt
+What do you want to build?
+> A simple attendance system for interns using photo and GPS
+
+Needle asks:
+- target platform
+- user roles
+- auth method
+- core workflow
+- data model
+- edge cases
+- acceptance criteria
+- technical constraints
+```
+
+Generated output:
+
+```txt
+docs/PRD.md
+.needle/prd-session.json
+```
+
+Recommended flow:
+
+```bash
+needle prd
+needle plan
+needle code
+needle review
+needle reflect
+```
 
 ## Install
 
-```bash
-# Install globally
-npm install -g needle-cli
+Install globally:
 
-# Or use without installing
+```bash
+npm install -g needle-cli
+```
+
+Or run without installing:
+
+```bash
 npx needle-cli init
+```
+
+Verify installation:
+
+```bash
+needle --help
 ```
 
 ## Quickstart
 
-1. Initialize Needle in your project:
-   ```bash
-   needle init
-   ```
+Initialize Needle inside your project:
 
-2. Set your API key (e.g., for OpenRouter):
-   ```bash
-   export OPENROUTER_API_KEY="your_openrouter_key"
-   ```
-
-3. Ask Needle to do something:
-   ```bash
-   needle code "Refactor the authentication middleware"
-   ```
-
-## Provider Setup
-
-Needle supports multiple AI providers. Configure them via environment variables or `.env`.
-
-### 9Router
-
-9Router acts as a gateway. The 9Router dashboard manages your upstream provider auth. Needle does not need your upstream provider keys directly.
-
-Use your 9Router gateway/endpoint API key for `NINE_ROUTER_API_KEY`. If running a local trusted 9Router, auth may be disabled depending on your gateway config.
-
-Base URL examples:
-* local: `http://localhost:20128/v1`
-* remote: `http://your-host:20128/v1`
-
-Model examples:
-* `low`
-* `medium`
-* `high`
-* `free`
-(or any combo name copied from the 9Router dashboard)
-
-Example Setup:
 ```bash
-needle config set provider 9router
-needle config set providers.9router.baseUrl http://localhost:20128/v1
-needle config set model.coder low
-export NINE_ROUTER_API_KEY="your_9router_gateway_key"
+cd your-project
+needle init
 ```
 
-### OpenRouter
+Set your provider API key:
+
 ```bash
 export OPENROUTER_API_KEY="your_openrouter_key"
 ```
 
-### OpenAI-Compatible
+Ask Needle to plan a change:
+
 ```bash
-export OPENAI_API_KEY="your_openai_key"
-export OPENAI_BASE_URL="https://api.openai.com/v1" # Customize for local models (e.g., LMStudio, Ollama)
+needle plan "How should we add Redis caching to this API?"
 ```
 
-### Gemini
+Ask Needle to implement:
+
 ```bash
-export GEMINI_API_KEY="your_gemini_key"
+needle code "Implement the Redis caching plan" --mode ask
 ```
 
-### DeepSeek
+Review changes:
+
 ```bash
-export DEEPSEEK_API_KEY="your_deepseek_key"
+needle review
 ```
 
-You can select a specific model when running commands using the `--model` flag:
+Update memory:
+
 ```bash
-needle code "Fix the build script" --model "deepseek/deepseek-coder"
+needle reflect
 ```
 
 ## Commands
 
 ### `init`
-Initialize Needle in the current directory. Creates `.needle/` configuration folder.
+
+Initialize Needle in the current directory.
+
 ```bash
 needle init
 ```
 
-### `config`
-View or modify your current configuration.
-```bash
-needle config list
-```
+Creates:
 
-### `models`
-List available models for your configured providers.
-```bash
-needle models
-```
-
-### `plan`
-Draft an execution plan without modifying files.
-```bash
-needle plan "How should we implement user avatars?"
+```txt
+.needle/
+  config.json
+  MEMORY.md
+  sessions/
 ```
 
 ### `code`
-The main agent loop. Needle will read files, think, and write code to accomplish the task.
+
+Run the main coding agent loop.
+
 ```bash
 needle code "Add a health check endpoint to Express"
 ```
 
+Needle can read files, write code, run commands, and iterate until the task is complete.
+
+### `plan`
+
+Generate an implementation plan without modifying files.
+
+```bash
+needle plan "How should we implement user avatars?"
+```
+
+### `prd`
+
+Generate a product requirements document from a rough idea.
+
+```bash
+needle prd
+```
+
+Useful when you want to define scope before writing code.
+
 ### `review`
-Review unstaged git changes and suggest improvements or catch bugs.
+
+Review unstaged git changes.
+
 ```bash
 needle review
 ```
 
+Needle will inspect your diff and suggest fixes, risks, or improvements.
+
+### `reflect`
+
+Summarize recent sessions and update project memory.
+
+```bash
+needle reflect
+```
+
+### `models`
+
+List available models for configured providers.
+
+```bash
+needle models
+```
+
+### `config`
+
+View or modify local Needle configuration.
+
+```bash
+needle config list
+needle config set provider 9router
+needle config set model.coder high
+```
+
 ### `sessions`
-Manage past interaction sessions.
+
+Manage previous sessions.
+
 ```bash
 needle sessions list
 needle sessions resume <session_id>
 ```
 
-### `reflect`
-Analyze recent sessions and update the project memory document.
-```bash
-needle reflect
+## Providers
+
+Needle supports multiple AI providers through environment variables and local config.
+
+### 9Router
+
+9Router acts as a gateway for multiple upstream providers. The 9Router dashboard manages upstream provider authentication, so Needle only needs your gateway configuration.
+
+Base URL examples:
+
+```txt
+http://localhost:20128/v1
+http://your-host:20128/v1
 ```
 
-## Memory Workflow
+Model examples:
+
+```txt
+low
+medium
+high
+free
+```
+
+Setup:
+
+```bash
+needle config set provider 9router
+needle config set providers.9router.baseUrl http://localhost:20128/v1
+needle config set model.coder low
+
+export NINE_ROUTER_API_KEY="your_9router_gateway_key"
+```
+
+If you run a local trusted 9Router gateway, auth may be disabled depending on your gateway configuration.
+
+### OpenRouter
+
+```bash
+export OPENROUTER_API_KEY="your_openrouter_key"
+
+needle config set provider openrouter
+```
+
+### OpenAI-compatible APIs
+
+```bash
+export OPENAI_API_KEY="your_openai_key"
+export OPENAI_BASE_URL="https://api.openai.com/v1"
+```
+
+You can also use compatible local endpoints such as LM Studio, Ollama-compatible gateways, or custom OpenAI-compatible APIs.
+
+### Gemini
+
+```bash
+export GEMINI_API_KEY="your_gemini_key"
+
+needle config set provider gemini
+```
+
+### DeepSeek
+
+```bash
+export DEEPSEEK_API_KEY="your_deepseek_key"
+
+needle config set provider deepseek
+```
+
+Use a specific model:
+
+```bash
+needle code "Fix the build script" --model "deepseek/deepseek-coder"
+```
+
+## Memory workflow
 
 Needle learns about your project over time.
-- Context is stored in `.needle/MEMORY.md`.
-- Sessions are logged in `.needle/sessions/runs.jsonl`.
-- Run `needle reflect` periodically to distill session learnings into the core memory document.
 
-## Safety Model & Permissions
-
-Needle can execute shell commands and modify files. To prevent unintended actions, Needle supports different permission modes:
-
-- `--mode ask` (Default): Prompts for confirmation before executing commands or writing files.
-- `--mode auto`: Executes safe commands automatically. Prompts for destructive actions.
-- `--mode dry-run`: Simulates actions and prints them to the console without applying them.
-
-Example:
-```bash
-needle code "Update dependencies" --mode auto
+```txt
+.needle/MEMORY.md
+.needle/sessions/runs.jsonl
 ```
 
-## Built-in Tools
-
-Needle equips the LLM with a comprehensive toolset:
-- `file-read` / `file-write` / `file-edit`: File system manipulation.
-- `shell`: Command line execution.
-- `glob` / `grep`: Codebase exploration.
-- `git-diff`: Code review context.
-
-## Example Workflow
+Recommended workflow:
 
 ```bash
-# 1. Initialize
-needle init
-
-# 2. Ask for a plan
-needle plan "I want to add Redis caching to our API"
-
-# 3. Execute the plan
-needle code "Implement the Redis caching plan we just discussed" --mode ask
-
-# 4. Review the changes
+needle code "Implement feature X"
 needle review
-
-# 5. Commit
-git commit -m "feat: add Redis caching"
-
-# 6. Update project memory
 needle reflect
 ```
 
-## Status & Roadmap
+Memory is useful for:
 
-Needle is currently in beta. It is usable for terminal dogfooding, but APIs and command behavior may change before v1.0.
+- project architecture
+- coding conventions
+- preferred libraries
+- known constraints
+- recurring bugs
+- important decisions
+- previous implementation context
+
+## Safety model
+
+Needle can execute shell commands and modify files. You stay in control through permission modes.
+
+```bash
+needle code "Refactor the API routes" --mode ask
+```
+
+Modes:
+
+```txt
+ask      confirm before commands and file writes
+auto     run safe actions automatically
+dry-run  print intended actions without applying them
+```
+
+Needle should always make risky actions visible.
+
+Examples of risky actions:
+
+- deleting files
+- installing packages
+- running migrations
+- modifying lockfiles
+- executing unknown scripts
+- pushing to git remotes
+- touching environment files
+
+## Example workflows
+
+### Fix a bug
+
+```bash
+needle code "Fix the failing login test" --mode ask
+needle review
+npm test
+needle reflect
+```
+
+### Plan before coding
+
+```bash
+needle plan "Add GitHub OAuth login"
+needle code "Implement the GitHub OAuth plan"
+needle review
+```
+
+### Start from a rough idea
+
+```bash
+needle prd
+needle plan
+needle code
+```
+
+### Review your own changes
+
+```bash
+git diff
+needle review
+```
+
+## Project structure
+
+Recommended project files:
+
+```txt
+your-project/
+  .needle/
+    config.json
+    MEMORY.md
+    sessions/
+  docs/
+    PRD.md
+  src/
+  package.json
+```
+
+Recommended repo branding assets:
+
+```txt
+assets/
+  needle-icon.png
+  needle-wordmark.png
+  needle-hero.png
+  needle-terminal.png
+```
+
+Use the hero at the top of this README:
+
+```html
+<img
+  src="assets/needle-hero.png"
+  alt="Needle - terminal-first AI coding agent"
+  width="100%"
+/>
+```
+
+## Configuration
+
+Example `.needle/config.json`:
+
+```json
+{
+  "provider": "openrouter",
+  "model": {
+    "coder": "high",
+    "planner": "medium",
+    "reviewer": "medium"
+  },
+  "memory": {
+    "enabled": true,
+    "path": ".needle/MEMORY.md"
+  },
+  "safety": {
+    "mode": "ask",
+    "redactSecrets": true
+  }
+}
+```
+
+## Development
+
+Clone the repository:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/needle.git
+cd needle
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run in development:
+
+```bash
+npm run dev
+```
+
+Build:
+
+```bash
+npm run build
+```
+
+Run tests:
+
+```bash
+npm test
+```
+
+Link locally:
+
+```bash
+npm link
+needle --help
+```
+
+## Roadmap
+
+Needle is still early. The current focus is making the terminal coding loop reliable and practical.
 
 - [x] Core agent loop
-- [x] Multi-provider support
-- [x] Basic memory system
-- [ ] VSCode Extension
+- [x] Multi-provider configuration
+- [x] Project memory
+- [x] Session history
+- [x] Built-in file and shell tools
+- [x] Permission modes
+- [ ] PRD mode
+- [ ] Better terminal UI
+- [ ] Git-aware patch approval
+- [ ] Usage and cost tracking
+- [ ] Multi-provider fallback
 - [ ] Custom tool plugins
+- [ ] Background agents
 - [ ] Multi-agent collaboration
+- [ ] VS Code extension
+- [ ] Stable v1 release
+
+## Status
+
+Needle is currently in beta.
+
+It is usable for terminal dogfooding, but APIs, config shape, and command behavior may change before v1.0.
+
+Use it on real projects, but review changes carefully.
+
+## Contributing
+
+Contributions are welcome.
+
+Good first areas:
+
+- improve CLI UX
+- add provider adapters
+- improve tool safety
+- improve project scanning
+- improve PRD mode
+- write tests
+- improve docs
+- test Needle on real repositories
+
+Before opening a large PR, please create an issue or discussion first so the direction stays aligned.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT License.
+
+See [LICENSE](LICENSE) for details.
