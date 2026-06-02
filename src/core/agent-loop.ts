@@ -5,6 +5,7 @@ import { buildAgentSystemPrompt, buildAgentUserPrompt } from "./prompt-builder.j
 import { appendSessionRecord, createSessionId, SessionRecord } from "./session.js";
 import type { SessionState } from "../ui/interactive/session-state.js";
 import type { ToolObservation } from "../ui/interactive/tool-observation-store.js";
+import { compactMessages } from "./context-collapse.js";
 
 export interface AgentLoopOptions {
   cwd: string;
@@ -77,7 +78,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     };
   }
 
-  const messages: ChatMessage[] = [
+  let messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
     { role: "user", content: buildAgentUserPrompt(options.task) }
   ];
@@ -91,11 +92,11 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
       throw new Error("providerChat implementation missing");
     }
 
+    // Compact messages to fit within context window
+    messages = compactMessages(messages, 8000);
+
     const response = await options.providerChat(messages);
     messages.push({ role: "assistant", content: response.content });
-
-    const hasPseudoCommands = /(?:\/code|\/shell|file\.write|shell\s+)/.test(response.content);
-
     let parsedArray: any[] = [];
     try {
       // Find all JSON blocks in the response. Model might mix text and JSON.
