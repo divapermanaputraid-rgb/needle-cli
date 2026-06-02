@@ -6,6 +6,7 @@ import { saveNeedleConfig } from '../../config/loader.js';
 import { handleInteractiveChat } from './interactive-chat.js';
 import type { ChatSession } from './chat-session.js';
 import type { RuntimeController } from './runtime-controller.js';
+import { getSecretStatus, clearLocalSecrets, forgetLocalSecret, getEnvVarName } from './secrets.js';
 
 export async function handleSlashCommand(input: string, state: ShellState, chatSession: ChatSession, rl?: readline.Interface, runtimeController?: RuntimeController): Promise<boolean> {
   if (!input.trim().startsWith('/')) {
@@ -47,6 +48,27 @@ ${bold}Available Commands:${reset}
       `);
       return true;
 
+    case '/secrets':
+      if (parts[1] === 'clear') {
+        clearLocalSecrets(state.cwd);
+        console.log(`\n${cyan}Local secrets cleared.${reset}\n`);
+      } else if (parts[1] === 'forget' && parts[2]) {
+        forgetLocalSecret(state.cwd, parts[2]);
+        console.log(`\n${cyan}Forgot local secret: ${parts[2]}${reset}\n`);
+      } else {
+        console.log(`\n${bold}Secrets:${reset}`);
+        const providers = ['9router', 'openrouter', 'openai-compatible', 'gemini', 'deepseek'];
+        for (const p of providers) {
+          const envVar = getEnvVarName(p);
+          if (envVar) {
+            const status = getSecretStatus(state.cwd, p);
+            console.log(`  * ${envVar}: ${status}`);
+          }
+        }
+        console.log(`\n${dim}Commands: /secrets clear, /secrets forget <ENV_VAR>${reset}\n`);
+      }
+      return true;
+
     case '/exit':
       console.log(`${dim}Exiting Needle...${reset}`);
       process.exit(0);
@@ -67,6 +89,9 @@ ${bold}Available Commands:${reset}
       console.log(`  CWD:      ${state.cwd}`);
       console.log(`  Config:   ${state.config ? 'Found' : `${yellow}Missing (Run needle init)${reset}`}`);
       console.log(`  Provider: ${state.provider || 'None'}`);
+      if (state.provider) {
+         console.log(`  Secret:   ${getSecretStatus(state.cwd, state.provider)}`);
+      }
       console.log(`  Profile:  ${state.profile || 'None'}`);
       console.log(`  Model:    ${state.modelId || 'None'}\n`);
       return true;

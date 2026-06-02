@@ -1,7 +1,7 @@
 import * as readline from 'node:readline';
 import { ShellState } from './shell-state.js';
 import { loadNeedleConfig, saveNeedleConfig, createDefaultConfig } from '../../config/loader.js';
-import { setSessionSecret, getEnvVarName } from './secrets.js';
+import { setSessionSecret, getEnvVarName, saveLocalSecret } from './secrets.js';
 import { NeedleConfig } from '../../config/schema.js';
 
 const reset = '\x1b[0m';
@@ -120,7 +120,21 @@ export async function runSettingsWizard(rl: readline.Interface, state: ShellStat
     }
 
     if (key.trim()) {
-      setSessionSecret(provider, key.trim());
+      const apiKey = key.trim();
+      setSessionSecret(provider, apiKey);
+
+      const saveLocally = await askQuestion(rl, `\nSave API key locally for this workspace? (Y/n) `);
+      if (isSlashCommandEscape(saveLocally)) {
+        handleSlashCommandEscape(saveLocally);
+        return;
+      }
+      if (saveLocally.trim().toLowerCase() !== 'n') {
+        saveLocalSecret(state.cwd, provider, apiKey);
+        console.log(`\n${cyan}API key saved locally for this workspace.${reset}`);
+        console.log(`${dim}It will be loaded automatically next time.${reset}`);
+      } else {
+        console.log(`\n${cyan}API key set for this shell session only.${reset}`);
+      }
     }
   }
 
@@ -196,10 +210,6 @@ export async function runSettingsWizard(rl: readline.Interface, state: ShellStat
   console.log(`Models:`);
   for (const p of profiles) {
     console.log(`${p.padEnd(8)} -> ${config.models[p]}`);
-  }
-  
-  if (envVar && process.env[envVar]) {
-    console.log(`\n${cyan}API key set for this shell session only.${reset}`);
   }
   
   console.log(`${dim}Try: /plan inspect this project${reset}\n`);

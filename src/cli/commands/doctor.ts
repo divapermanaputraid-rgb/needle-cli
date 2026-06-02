@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { loadNeedleConfig, resolveProviderConfig } from "../../config/loader.js";
 import { NeedleConfig } from "../../config/schema.js";
+import { getSecretStatus } from "../../ui/interactive/secrets.js";
 
 export const doctorCommand = new Command("doctor")
   .description("Verify local setup, workspace config, providers, models, and safety mode")
@@ -108,24 +109,27 @@ export const doctorCommand = new Command("doctor")
 
         // Env Var
         const envName = providerConfig.apiKeyEnv;
+        const secretStatus = getSecretStatus(cwd, activeProviderId);
         console.log(`INFO active provider API key env name: ${envName}`);
-        if (process.env[envName]) {
-          console.log(`OK env var is set`);
+        if (secretStatus === "set from environment") {
+          console.log(`OK API key: set from environment`);
+        } else if (secretStatus === "saved locally") {
+          console.log(`OK API key: saved locally`);
         } else {
           if (activeProviderId === "9router") {
             const isLocal = providerConfig.baseUrl && providerConfig.baseUrl.includes("localhost");
             if (isLocal) {
-              console.log(`WARN env var is missing (local 9Router may allow no-auth depending on your gateway config)`);
+              console.log(`WARN API key is missing (local 9Router may allow no-auth depending on your gateway config)`);
               updateStatus("WARN");
             } else {
-              console.log(`FAIL env var is missing (${envName} is the 9Router gateway/API access key, not an upstream provider key)`);
+              console.log(`FAIL API key is missing (${envName} is the 9Router gateway/API access key, not an upstream provider key)`);
               updateStatus("FAIL");
-              nextSteps.push(`export ${envName}="your_9router_gateway_key"`);
+              nextSteps.push(`Run /settings in the interactive shell to set API key`);
             }
           } else {
-            console.log(`FAIL env var is missing`);
+            console.log(`FAIL API key is missing`);
             updateStatus("FAIL");
-            nextSteps.push(`export ${envName}="your_key"`);
+            nextSteps.push(`Run /settings in the interactive shell to set API key`);
           }
         }
       } catch (e: any) {
