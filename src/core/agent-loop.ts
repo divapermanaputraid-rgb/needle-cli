@@ -97,6 +97,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
 
     const response = await options.providerChat(messages);
     messages.push({ role: "assistant", content: response.content });
+    
+    const hasPseudoCommands = response.content.includes("/") || response.content.includes("@");
     let parsedArray: any[] = [];
     try {
       // Find all JSON blocks in the response. Model might mix text and JSON.

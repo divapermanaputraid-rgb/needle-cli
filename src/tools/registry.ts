@@ -12,6 +12,8 @@ import { dirListTool } from "./dir.list.js";
 import { askUserQuestionTool } from "./ask-user.js";
 import { enterPlanModeTool } from "./enter-plan-mode.js";
 import { exitPlanModeTool } from "./exit-plan-mode.js";
+import { webFetchTool } from "./web-fetch.js";
+import { webSearchTool } from "./web-search.js";
 
 export class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
@@ -59,5 +61,7 @@ export function createDefaultToolRegistry(): ToolRegistry {
   registry.register(askUserQuestionTool);
   registry.register(enterPlanModeTool);
   registry.register(exitPlanModeTool);
+  registry.register(webFetchTool);
+  registry.register(webSearchTool);
   return registry;
 }
