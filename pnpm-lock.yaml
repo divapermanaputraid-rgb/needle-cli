@@ -32,6 +32,9 @@ importers:
       ink-spinner:
         specifier: ^5.0.0
         version: 5.0.0(ink@7.0.5(@types/react@19.2.16)(react@19.2.7))(react@19.2.7)
+      ink-text-input:
+        specifier: ^6.0.0
+        version: 6.0.0(ink@7.0.5(@types/react@19.2.16)(react@19.2.7))(react@19.2.7)
       react:
         specifier: ^19.2.7
         version: 19.2.7
@@ -1194,6 +1197,13 @@ packages:
       ink: '>=4.0.0'
       react: '>=18.0.0'
 
+  ink-text-input@6.0.0:
+    resolution: {integrity: sha512-Fw64n7Yha5deb1rHY137zHTAbSTNelUKuB5Kkk2HACXEtwIHBCf9OH2tP/LQ9fRYTl1F0dZgbW0zPnZk6FA9Lw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      ink: '>=5'
+      react: '>=18'
+
   ink@7.0.5:
     resolution: {integrity: sha512-zWNjGHQPxSeiSAmDUOq+QPQ6CfmMhmNi85vrJIuy4prafKKUSoZlXEy4wbM7LuLuF1pDURk7qvF4fxrQlLxv3w==}
     engines: {node: '>=22'}
@@ -1517,6 +1527,10 @@ packages:
 
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
+
+  type-fest@4.41.0:
+    resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
+    engines: {node: '>=16'}
 
   type-fest@5.7.0:
     resolution: {integrity: sha512-1URUxUqfHFM1c+zfSPsa3gnkO7Aq21qyH75SIduNYz4SzY964rn1X2vCMQaHSHhktiw+0kPa2iyb6PUpXqB6Vg==}
@@ -2288,6 +2302,13 @@ snapshots:
       ink: 7.0.5(@types/react@19.2.16)(react@19.2.7)
       react: 19.2.7
 
+  ink-text-input@6.0.0(ink@7.0.5(@types/react@19.2.16)(react@19.2.7))(react@19.2.7):
+    dependencies:
+      chalk: 5.6.2
+      ink: 7.0.5(@types/react@19.2.16)(react@19.2.7)
+      react: 19.2.7
+      type-fest: 4.41.0
+
   ink@7.0.5(@types/react@19.2.16)(react@19.2.7):
     dependencies:
       '@alcalzone/ansi-tokenize': 0.3.0
@@ -2640,6 +2661,8 @@ snapshots:
   tunnel-agent@0.6.0:
     dependencies:
       safe-buffer: 5.2.1
+
+  type-fest@4.41.0: {}
 
   type-fest@5.7.0:
     dependencies:

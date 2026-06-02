@@ -7,6 +7,7 @@ import { McpClient } from "./mcp.js";
 export type ToolHandler = (args: any) => Effect.Effect<string, Error>;
 
 export class ToolRegistry extends Effect.Service<ToolRegistry>()("@needle/ToolRegistry", {
+  dependencies: [ConfigProvider.Default, Logger.Default],
   effect: Effect.gen(function* () {
     const tools = new Map<string, { tool: NativeTool; handler: ToolHandler }>();
     let mcpClient: McpClient | undefined;
@@ -34,7 +35,8 @@ export class ToolRegistry extends Effect.Service<ToolRegistry>()("@needle/ToolRe
 
       execute: (name: string, args: string) =>
         Effect.gen(function* () {
-          const config = yield* ConfigProvider;
+          const configProvider = yield* ConfigProvider;
+          const config = yield* configProvider.getConfig();
           const logger = yield* Logger;
           
           if (config.isYoloMode) {
