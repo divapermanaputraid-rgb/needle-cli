@@ -97,11 +97,35 @@ export class TaskNormalizer {
     // 6.5 Other code actions
     const otherCodeActions = [
       "tambahkan command",
+      "tambah command",
+      "implement command",
+      "tambahkan slash command",
+      "tambahkan test",
+      "update test",
+      "cari file yang benar lalu implement",
+      "jalankan pnpm typecheck",
+      "jalankan pnpm test",
+      "fix failing test",
+      "edit source",
+      "modify source",
+      "update src",
+      "buat command baru",
       "edit file",
       "fix error",
       "jalankan test"
     ];
     if (otherCodeActions.some(kw => text.includes(kw))) {
+      return { intent: "code_action", needsClarification: false };
+    }
+    
+    // Fallback regex matching for action verbs indicating implementation
+    const actionVerbs = ["tambahkan", "tambah", "implement", "ubah", "edit", "update", "fix", "perbaiki", "buatkan", "buat", "jalankan", "run", "modify"];
+    const actionTargets = ["command", "slash command", "test", "source", "file", "pnpm", "typecheck", "src/", "tests/"];
+    
+    const hasVerb = actionVerbs.some(verb => new RegExp(`\\b${verb}\\b`, 'i').test(text));
+    const hasTarget = actionTargets.some(target => new RegExp(`\\b${target}\\b`, 'i').test(text));
+    
+    if (hasVerb && hasTarget) {
       return { intent: "code_action", needsClarification: false };
     }
 
