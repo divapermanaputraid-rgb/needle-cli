@@ -60,7 +60,7 @@ export function redactSessionText(input: string, maxBytes: number = 8192): strin
 export async function appendSessionRecord(
   cwd: string,
   record: SessionRecord
-): Promise<void> {
+): Promise<{ ok: boolean; warning?: string }> {
   try {
     const dirPath = path.join(cwd, ".needle", "sessions");
     const filePath = path.join(dirPath, "runs.jsonl");
@@ -74,9 +74,16 @@ export async function appendSessionRecord(
 
     await fs.mkdir(dirPath, { recursive: true });
     await fs.appendFile(filePath, JSON.stringify(safeRecord) + "\n", "utf-8");
+    return { ok: true };
   } catch (error) {
     // Logging must never break main command
-    console.error("Failed to append session record:", error);
+    const warning = "Could not write session log. Continuing without session persistence.";
+    if (process.env["NEEDLE_DEBUG"]) {
+      console.warn(`Warning: ${warning}`, error);
+    } else {
+      console.warn(`Warning: ${warning}`);
+    }
+    return { ok: false, warning };
   }
 }
 

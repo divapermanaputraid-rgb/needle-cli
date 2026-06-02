@@ -6,12 +6,47 @@ import os from "node:os";
 import { appendSessionRecord, readRecentSessions, findSessionById, redactSessionText, SessionRecord } from "../../src/core/session.js";
 
 test("session logging", async (t) => {
+  const tempDirs: string[] = [];
+  
   const setupTempDir = async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-session-test-"));
+    tempDirs.push(tempDir);
     return tempDir;
   };
 
-  await t.test("appendSessionRecord creates .needle/sessions/runs.jsonl and reads newest first", async () => {
+  t.after(async () => {
+    for (const dir of tempDirs) {
+      await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+    }
+  });
+
+  await t.test("appendSessionRecord creates .needle/sessions if missing and writes one JSONL line", async () => {
+    const cwd = await setupTempDir();
+    
+    const record: SessionRecord = {
+      id: "run_1",
+      createdAt: new Date("2024-01-01T10:00:00Z").toISOString(),
+      mode: "code",
+      task: "first task",
+      cwd,
+      status: "success",
+      durationMs: 100,
+      summary: "First summary",
+    };
+
+    const res = await appendSessionRecord(cwd, record);
+    assert.equal(res.ok, true);
+
+    const logPath = path.join(cwd, ".needle", "sessions", "runs.jsonl");
+    const content = await fs.readFile(logPath, "utf-8");
+    const lines = content.split("\n").filter(Boolean);
+    
+    assert.equal(lines.length, 1);
+    const parsed = JSON.parse(lines[0]);
+    assert.equal(parsed.id, "run_1");
+  });
+
+  await t.test("appendSessionRecord appends multiple records safely", async () => {
     const cwd = await setupTempDir();
     
     const record1: SessionRecord = {
@@ -40,8 +75,12 @@ test("session logging", async (t) => {
     await appendSessionRecord(cwd, record2);
 
     const logPath = path.join(cwd, ".needle", "sessions", "runs.jsonl");
-    const exists = await fs.access(logPath).then(() => true).catch(() => false);
-    assert.ok(exists, "runs.jsonl should be created");
+    const content = await fs.readFile(logPath, "utf-8");
+    const lines = content.split("\n").filter(Boolean);
+    
+    assert.equal(lines.length, 2);
+    assert.equal(JSON.parse(lines[0]).id, "run_1");
+    assert.equal(JSON.parse(lines[1]).id, "run_2");
 
     const sessions = await readRecentSessions(cwd);
     assert.equal(sessions.length, 2);
@@ -69,12 +108,13 @@ test("session logging", async (t) => {
     assert.equal(sessions[1].id, "run_1");
   });
 
-  await t.test("redactSessionText removes API-key-like values", async () => {
-    const input = "Here is my key: sk-ant-api03-1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef and a bearer token: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xyz";
+  await t.test("session log redacts API keys and secrets", async () => {
+    const input = "Here is my key: sk-ant-api03-1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef and a bearer token: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xyz. also NINE_ROUTER_API_KEY=abc123def456xyz7890123456";
     const redacted = redactSessionText(input);
     
     assert.ok(!redacted.includes("sk-ant-api03-"), "Anthropic key should be redacted");
     assert.ok(!redacted.includes("Bearer eyJhbGci"), "Bearer token should be redacted");
+    assert.ok(!redacted.includes("abc123def456xyz7890123456"), "Secret variable should be redacted");
     assert.ok(redacted.includes("***"));
   });
 
@@ -101,7 +141,7 @@ test("session logging", async (t) => {
     assert.ok(sessions[0].summary.includes("(truncated)"));
   });
 
-  await t.test("session logging failure does not break caller", async () => {
+  await t.test("appendSessionRecord handles unwritable directory without throwing raw crash", async () => {
     const cwd = await setupTempDir();
     
     // Make the directory read-only so logging fails
@@ -120,16 +160,20 @@ test("session logging", async (t) => {
       summary: "summary",
     };
 
-    // Should not throw
+    // Should not throw, should return ok: false
+    let result: { ok: boolean; warning?: string } = { ok: true };
     await assert.doesNotReject(async () => {
-      await appendSessionRecord(cwd, record);
+      result = await appendSessionRecord(cwd, record);
     });
+    
+    assert.equal(result.ok, false);
+    assert.ok(result.warning?.includes("Could not write session log"));
     
     // Cleanup so it can be deleted
     await fs.chmod(dirPath, 0o755);
   });
 
-  await t.test("findSessionById", async () => {
+  await t.test("findSessionById finds exact and prefix matches", async () => {
     const cwd = await setupTempDir();
 
     const record1: SessionRecord = {

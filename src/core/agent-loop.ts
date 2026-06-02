@@ -73,6 +73,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
       toolCalls: [],
       errors: []
     };
+    // Session logging is non-fatal; warning emitted internally on failure
     await appendSessionRecord(options.cwd, record);
 
     return {
@@ -304,6 +305,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     errors: errors.length > 0 ? errors : undefined
   };
 
+  // Session logging is non-fatal; warning emitted internally on failure
   await appendSessionRecord(options.cwd, record);
 
   return {
