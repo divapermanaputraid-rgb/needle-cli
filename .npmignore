@@ -36,3 +36,7 @@ scripts/
 .DS_Store
 
 # Safety
+src-v2/
+reference/
+.needle-v2.db
+secrets.local.json

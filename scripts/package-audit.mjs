@@ -17,6 +17,10 @@ const FORBIDDEN_FILE_PATTERNS = [
   /^package\/src\//,
   /docs\//,
   /^\.needle\//,
+  /src-v2\//,
+  /reference\//,
+  /\.needle-v2\.db/,
+  /secrets\.local\.json/,
 ];
 
 const FORBIDDEN_STRINGS = [
