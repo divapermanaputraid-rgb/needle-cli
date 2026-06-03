@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import * as fsSync from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
 
@@ -33,7 +34,7 @@ export function createSessionId(): string {
   return crypto.randomUUID();
 }
 
-export function redactSessionText(input: string, maxBytes: number = 8192): string {
+export function redactSessionText(input: string, maxBytes: number = 8192, cwd?: string): string {
   if (!input) return input;
 
   // Redact secrets
@@ -43,6 +44,41 @@ export function redactSessionText(input: string, maxBytes: number = 8192): strin
   redacted = redacted.replace(/sk-[A-Za-z0-9_-]{20,}/g, "sk-***");
   redacted = redacted.replace(/(api[_\-]?key)["']?\s*[:=]\s*["']?[A-Za-z0-9_-]{20,}/gi, "$1: ***");
   redacted = redacted.replace(/([a-zA-Z0-9_-]*(?:SECRET|TOKEN|KEY)[a-zA-Z0-9_-]*)["']?\s*[:=]\s*["']?[A-Za-z0-9_-]{20,}/gi, "$1: ***");
+
+  const dynamicSecrets: string[] = [];
+
+  // Dynamic secret redaction (from env)
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v && v.length > 5 && /(API_KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL)/i.test(k)) {
+      dynamicSecrets.push(v);
+    }
+  }
+
+  // Dynamic secret redaction (from secrets.local.json)
+  if (cwd) {
+    try {
+      const secretsPath = path.join(cwd, ".needle", "secrets.local.json");
+      if (fsSync.existsSync(secretsPath)) {
+        const content = fsSync.readFileSync(secretsPath, "utf-8");
+        const parsed = JSON.parse(content);
+        if (parsed && typeof parsed === "object") {
+          for (const val of Object.values(parsed)) {
+            if (typeof val === "string" && val.length > 5) {
+              dynamicSecrets.push(val);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  for (const secretVal of dynamicSecrets) {
+    // Escape string for regex
+    const escaped = secretVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    redacted = redacted.replace(new RegExp(escaped, 'g'), "***");
+  }
 
   // Truncate if too long (rough byte approximation using string length is usually fine for this, 
   // but let's use Buffer.from if we really need byte length, or just string slice for safety and speed)
@@ -62,26 +98,47 @@ export async function appendSessionRecord(
   record: SessionRecord
 ): Promise<{ ok: boolean; warning?: string }> {
   try {
-    const dirPath = path.join(cwd, ".needle", "sessions");
-    const filePath = path.join(dirPath, "runs.jsonl");
+    const needleDir = path.join(cwd, ".needle");
+    const sessionsDir = path.join(needleDir, "sessions");
+    const filePath = path.join(sessionsDir, "runs.jsonl");
 
     // Enforce bounds before writing
     const safeRecord: SessionRecord = {
       ...record,
-      summary: redactSessionText(record.summary, 8192),
-      errors: record.errors?.map(e => redactSessionText(e, 4096)),
+      summary: redactSessionText(record.summary, 8192, cwd),
+      errors: record.errors?.map(e => redactSessionText(e, 4096, cwd)),
     };
 
-    await fs.mkdir(dirPath, { recursive: true });
-    await fs.appendFile(filePath, JSON.stringify(safeRecord) + "\n", "utf-8");
+    try {
+      await fs.mkdir(sessionsDir, { recursive: true });
+    } catch (err: any) {
+      if (err.code !== 'EEXIST') {
+        throw err;
+      }
+    }
+    
+    // Ensure the directory is writable, just in case
+    try {
+      await fs.access(sessionsDir, fs.constants.W_OK);
+    } catch (err) {
+      throw new Error(`Directory ${sessionsDir} is not writable: ${err}`);
+    }
+
+    try {
+      await fs.appendFile(filePath, JSON.stringify(safeRecord) + "\n", { encoding: "utf-8", mode: 0o600 });
+    } catch (err: any) {
+      // In tests and some environments, directory could become unwritable right after access check
+      throw new Error(`Failed to append to ${filePath}: ${err.message}`);
+    }
+    
     return { ok: true };
   } catch (error) {
     // Logging must never break main command
     const warning = "Could not write session log. Continuing without session persistence.";
     if (process.env["NEEDLE_DEBUG"]) {
-      console.warn(`Warning: ${warning}`, error);
-    } else {
-      console.warn(`Warning: ${warning}`);
+      // Only log stack trace if debug is explicitly enabled
+      // The calling code (e.g. RuntimeController) is responsible for logging the user-visible warning
+      console.warn(`[DEBUG] Session logging failed:`, error);
     }
     return { ok: false, warning };
   }
