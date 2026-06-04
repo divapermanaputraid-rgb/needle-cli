@@ -91,4 +91,25 @@ describe('Slash Commands', () => {
     assert.ok(logOutput.includes('Current Working Directory:'));
     assert.ok(logOutput.includes(tmpCwd));
   });
+
+  it('handles /whoami and hides absolute homedir paths', async () => {
+    const home = process.env.HOME || os.homedir();
+    // Force a mock path within home directory
+    const state: ShellState = { cwd: path.join(home, 'my-project'), history: [] };
+    const mockSession = {} as any;
+    
+    const originalLog = console.log;
+    let logOutput = '';
+    console.log = (msg: string) => { logOutput += msg + '\n'; };
+    
+    const handled = await handleSlashCommand('/whoami', state, mockSession);
+    console.log = originalLog;
+    
+    assert.strictEqual(handled, true);
+    assert.ok(logOutput.includes('Active Identity:'));
+    
+    // The raw home directory path should not be present in output, it should be replaced with ~
+    assert.ok(!logOutput.includes(home));
+    assert.ok(logOutput.includes('~/my-project'));
+  });
 });
