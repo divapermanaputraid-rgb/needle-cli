@@ -1,7 +1,11 @@
 import * as readline from 'node:readline';
 import { ShellState } from './shell-state.js';
 import { ChatSession } from './chat-session.js';
-import { TaskNormalizer } from './task-normalizer.js';
+import {
+  DETERMINISTIC_ROUTE_THRESHOLD,
+  TaskIntent,
+  TaskNormalizer,
+} from './task-normalizer.js';
 import { ReferenceResolver } from './reference-resolver.js';
 import { SessionState } from './session-state.js';
 import { handleInteractiveChat } from './interactive-chat.js';
@@ -9,12 +13,96 @@ import { runCodeAction } from './code-action-runner.js';
 import { runDocumentation } from './documentation-runner.js';
 import { runPlanMode } from '../../planner/plan-mode.js';
 import { createProviderRouter } from '../../providers/router.js';
-import { ModelProfile } from '../../providers/types.js';
+import { ModelProfile, ProviderId } from '../../providers/types.js';
+import {
+  LLM_ROUTE_CONFIDENCE_THRESHOLD,
+  LLMRouteClassifier,
+  RouteClassifier,
+} from './llm-route-classifier.js';
+import { resolveWorkspacePath } from '../../runtime/workspace/path-resolver.js';
+
+export const ROUTE_CLARIFICATION_MESSAGE =
+  "I'm not sure whether you want an explanation, a plan, or workspace changes. Please clarify the outcome you want.";
+
+export interface RouteResolution {
+  intent?: TaskIntent;
+  clarification?: string;
+}
+
+export interface RuntimeControllerOptions {
+  normalizer?: TaskNormalizer;
+  routeClassifier?: RouteClassifier;
+}
 
 export class RuntimeController {
   private sessionState = new SessionState();
-  private normalizer = new TaskNormalizer();
+  private normalizer: TaskNormalizer;
+  private routeClassifier: RouteClassifier;
   private resolver = new ReferenceResolver(this.sessionState.toolObservations);
+
+  constructor(options: RuntimeControllerOptions = {}) {
+    this.normalizer = options.normalizer ?? new TaskNormalizer();
+    this.routeClassifier = options.routeClassifier ?? new LLMRouteClassifier();
+  }
+
+  async resolveRoute(input: string, state: ShellState): Promise<RouteResolution> {
+    const candidate = this.normalizer.normalize(input);
+    if (candidate.needsClarification) {
+      return {
+        clarification: candidate.clarificationQuestion ?? ROUTE_CLARIFICATION_MESSAGE,
+      };
+    }
+
+    if (candidate.confidence >= DETERMINISTIC_ROUTE_THRESHOLD) {
+      return { intent: candidate };
+    }
+
+    const profile: ModelProfile | undefined = state.config?.models.router
+      ? "router"
+      : state.config?.models.fast
+        ? "fast"
+        : undefined;
+
+    if (!state.config || !profile) {
+      return { clarification: ROUTE_CLARIFICATION_MESSAGE };
+    }
+
+    try {
+      const router = createProviderRouter(state.config);
+      const providerId = (state.provider || state.config.defaultProvider) as ProviderId;
+      const classification = await this.routeClassifier.classify({
+        input,
+        candidate,
+        profile,
+        providerChat: request => router.chatWithProfile({
+          ...request,
+          providerId,
+        }),
+      });
+
+      if (
+        classification.intent === "clarification" ||
+        classification.confidence < LLM_ROUTE_CONFIDENCE_THRESHOLD
+      ) {
+        return { clarification: ROUTE_CLARIFICATION_MESSAGE };
+      }
+
+      const targetPath = this.sanitizeClassifierPath(state.cwd, classification.targetPath);
+      const targetDirectory = this.sanitizeClassifierPath(state.cwd, classification.targetDirectory);
+
+      return {
+        intent: {
+          intent: classification.intent,
+          targetPath,
+          targetDirectory,
+          needsClarification: false,
+          inferredFrom: "llm-route-classifier",
+        },
+      };
+    } catch {
+      return { clarification: ROUTE_CLARIFICATION_MESSAGE };
+    }
+  }
 
   async handleUserInput(
     input: string,
@@ -22,7 +110,12 @@ export class RuntimeController {
     chatSession: ChatSession,
     rl?: readline.Interface
   ): Promise<void> {
-    const intentData = this.normalizer.normalize(input);
+    const route = await this.resolveRoute(input, state);
+    if (!route.intent) {
+      console.log(route.clarification ?? ROUTE_CLARIFICATION_MESSAGE);
+      return;
+    }
+    const intentData = route.intent;
 
     if (intentData.intent === "followup_lookup") {
       const lastFile = this.resolver.resolveTargetFile(input) || this.sessionState.toolObservations.getLastCreatedFile();
@@ -168,5 +261,11 @@ export class RuntimeController {
       }
     }
     return targetProfile;
+  }
+
+  private sanitizeClassifierPath(cwd: string, targetPath?: string): string | undefined {
+    if (!targetPath) return undefined;
+    const result = resolveWorkspacePath(cwd, targetPath, { isWrite: true });
+    return result.ok ? result.relativePath : undefined;
   }
 }
