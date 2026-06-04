@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
-import * as assert from 'node:assert';
-import { handleSlashCommand } from '../../../src/ui/interactive/slash-commands.js';
+import * as assert from 'node:assert/strict';
+import { formatDisplayPath, handleSlashCommand } from '../../../src/ui/interactive/slash-commands.js';
 import { ShellState } from '../../../src/ui/interactive/shell-state.js';
 
 import * as os from 'node:os';
@@ -111,5 +111,37 @@ describe('Slash Commands', () => {
     // The raw home directory path should not be present in output, it should be replaced with ~
     assert.ok(!logOutput.includes(home));
     assert.ok(logOutput.includes('~/my-project'));
+  });
+
+  it('formats macOS home-relative paths without exposing /Users', () => {
+    assert.strictEqual(
+      formatDisplayPath('/Users/alice/work/needle', '/Users/alice'),
+      '~/work/needle'
+    );
+  });
+
+  it('formats Linux home-relative paths without exposing /home', () => {
+    assert.strictEqual(
+      formatDisplayPath('/home/alice/work/needle', '/home/alice'),
+      '~/work/needle'
+    );
+  });
+
+  it('formats the home directory as ~', () => {
+    assert.strictEqual(formatDisplayPath('/Users/alice', '/Users/alice'), '~');
+  });
+
+  it('shortens absolute paths outside home', () => {
+    assert.strictEqual(
+      formatDisplayPath('/srv/workspaces/needle', '/Users/alice'),
+      './needle'
+    );
+  });
+
+  it('does not treat a sibling path with the same prefix as home-relative', () => {
+    assert.strictEqual(
+      formatDisplayPath('/Users/alice-other/needle', '/Users/alice'),
+      './needle'
+    );
   });
 });

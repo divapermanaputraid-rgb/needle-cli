@@ -26,12 +26,46 @@ export interface AgentToolCallRecord {
   ok: boolean;
 }
 
+export interface ValidationRecord {
+  command: string;
+  ok: boolean;
+  exitCode: number;
+}
+
 export interface AgentLoopResult {
   ok: boolean;
   summary: string;
   iterations: number;
   toolCalls: AgentToolCallRecord[];
+  validationResults: ValidationRecord[];
   observations?: ToolObservation[];
+}
+
+function runValidationCommand(command: string, cwd: string): {
+  record: ValidationRecord;
+  output: string;
+} {
+  try {
+    execSync(command, { cwd, stdio: "pipe" });
+    return {
+      record: { command, ok: true, exitCode: 0 },
+      output: "",
+    };
+  } catch (error: any) {
+    const stdout = error?.stdout?.toString() ?? "";
+    const stderr = error?.stderr?.toString() ?? "";
+    const output = [stdout.trim(), stderr.trim()].filter(Boolean).join("\n");
+    const exitCode = typeof error?.status === "number"
+      ? error.status
+      : typeof error?.code === "number"
+        ? error.code
+        : 1;
+
+    return {
+      record: { command, ok: false, exitCode },
+      output: output || `Command failed with exit code ${exitCode}`,
+    };
+  }
 }
 
 export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoopResult> {
@@ -54,6 +88,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
 
   const toolCalls: AgentToolCallRecord[] = [];
   const loopObservations: ToolObservation[] = [];
+  let validationResults: ValidationRecord[] = [];
   let iterations = 0;
   let finalSummary = "";
   let success = false;
@@ -80,7 +115,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
       ok: true,
       summary,
       iterations: 0,
-      toolCalls: []
+      toolCalls: [],
+      validationResults: [],
     };
   }
 
@@ -249,27 +285,28 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         // Run validations
         const needsValidation = toolCalls.some(t => t.tool === 'file.edit' || t.tool === 'file.write');
         if (needsValidation) {
-           let validationPassed = true;
-           let validationOutput = "";
-           
-           try {
-             if (repoConventions.typecheckCommand) {
-                execSync(repoConventions.typecheckCommand, { cwd: options.cwd, stdio: 'pipe' });
+           validationResults = [];
+           const commands = [
+             repoConventions.typecheckCommand,
+             repoConventions.testCommand,
+           ].filter((command): command is string => Boolean(command));
+           let validationFailure: { record: ValidationRecord; output: string } | undefined;
+
+           for (const command of commands) {
+             const result = runValidationCommand(command, options.cwd);
+             validationResults.push(result.record);
+             if (!result.record.ok) {
+               validationFailure = result;
+               break;
              }
-             if (repoConventions.testCommand) {
-                execSync(repoConventions.testCommand, { cwd: options.cwd, stdio: 'pipe' });
-             }
-           } catch (err: any) {
-             validationPassed = false;
-             validationOutput = err.stdout?.toString() || err.stderr?.toString() || String(err);
            }
 
-           if (!validationPassed) {
+           if (validationFailure) {
              success = false;
              didBreak = false;
              messages.push({
                role: "user",
-               content: `Validation failed after your changes. Please fix the following errors:\n${validationOutput}`
+               content: `Validation failed after your changes.\nCommand: ${validationFailure.record.command}\nExit code: ${validationFailure.record.exitCode}\n${validationFailure.output}`
              });
              continue; // Continue loop to fix the errors
            }
@@ -313,6 +350,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     summary: finalSummary,
     iterations,
     toolCalls,
+    validationResults,
     observations: loopObservations
   };
 }

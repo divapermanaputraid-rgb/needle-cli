@@ -1,5 +1,6 @@
 import * as readline from "node:readline";
 import { runAgentLoop, AgentLoopResult } from "../../core/agent-loop.js";
+import type { ValidationRecord } from "../../core/agent-loop.js";
 import type { ModelProfile, ChatMessage } from "../../providers/types.js";
 import { ProviderRouter } from "../../providers/router.js";
 import { NeedleConfig } from "../../config/schema.js";
@@ -36,6 +37,64 @@ export function parseGeneratedSummary(summary: string): string {
   return s.replace(/\s+/g, ' ').trim();
 }
 
+export function getCodeActionTitle(intent?: TaskIntent): string | undefined {
+  if (!intent) return undefined;
+
+  let targetPath = intent.targetPath;
+  if (
+    targetPath &&
+    intent.targetDirectory &&
+    !path.isAbsolute(targetPath) &&
+    path.dirname(targetPath) === "."
+  ) {
+    targetPath = path.join(intent.targetDirectory, targetPath);
+  }
+
+  if (targetPath) {
+    return `Code Action: Write File "${targetPath}"`;
+  }
+  if (intent.intent === "write_documentation") {
+    return "Documentation Action";
+  }
+  if (intent.targetDirectory) {
+    return `Code Action: Create Directory "${intent.targetDirectory}"`;
+  }
+  return undefined;
+}
+
+export function formatValidationEvidence(validationResults: ValidationRecord[]): string {
+  if (validationResults.length === 0) return "";
+
+  const failed = validationResults.filter((result) => !result.ok || result.exitCode !== 0);
+  if (failed.length > 0) {
+    return [
+      "Validation failed:",
+      ...failed.map((result) => `- ${result.command} FAILED (exit code ${result.exitCode})`),
+    ].join("\n");
+  }
+
+  return [
+    "Validation passed:",
+    ...validationResults.map((result) => `- ${result.command} OK`),
+  ].join("\n");
+}
+
+export function formatActionCompletion(
+  ok: boolean,
+  summary: string,
+  validationResults: ValidationRecord[],
+): string {
+  const evidence = formatValidationEvidence(validationResults);
+  if (!ok) {
+    const failure = evidence.startsWith("Validation failed:")
+      ? evidence
+      : summary;
+    return `Failed:\n${failure}`;
+  }
+
+  return `Done:\n${summary}${evidence ? `\n\n${evidence}` : ""}`;
+}
+
 export async function runCodeAction(options: CodeActionRunnerOptions): Promise<AgentLoopResult | undefined> {
   const { input, cwd, config, router, targetProfile, providerId, rl, sessionState, intent } = options;
   const yellow = "\x1b[33m";
@@ -47,21 +106,9 @@ export async function runCodeAction(options: CodeActionRunnerOptions): Promise<A
   
   let confirmMsg = `\n${yellow}This looks like a workspace change:\n"${input}"\n\nRun coding agent? (Y/n) ${reset}`;
   
-  if (intent?.intent === "code_action") {
-    if (intent.targetPath && intent.contentGoal) {
-      // Prioritize file creation Code Action titles for deterministic paths 
-      // over falling back to directory creation if both are present in the task
-      confirmMsg = `\n${yellow}Code Action: Write File "${intent.targetPath}"\nProceed? (Y/n) ${reset}`;
-    } else if (intent.targetDirectory && !intent.contentGoal) {
-      confirmMsg = `\n${yellow}Code Action: Create Directory "${intent.targetDirectory}"\nProceed? (Y/n) ${reset}`;
-    }
-  } else if (intent?.intent === "write_documentation") {
-     if (intent.targetPath) {
-       confirmMsg = `\n${yellow}Code Action: Write File "${intent.targetPath}"\nProceed? (Y/n) ${reset}`;
-     } else {
-       // Handled by documentation runner, but just in case
-       confirmMsg = `\n${yellow}Documentation Action\nProceed? (Y/n) ${reset}`;
-     }
+  const actionTitle = getCodeActionTitle(intent);
+  if (actionTitle) {
+    confirmMsg = `\n${yellow}${actionTitle}\nProceed? (Y/n) ${reset}`;
   }
 
   const confirm = await new Promise<string>((resolve) => {
@@ -94,15 +141,7 @@ export async function runCodeAction(options: CodeActionRunnerOptions): Promise<A
         }),
       sessionState
     });
-
-    // Optionally output repo conventions behavior as requested by requirements
-    if (result.observations && result.observations.some((obs: any) => obs.toolName === 'shell' && obs.output.includes("typecheck"))) {
-      console.log(`\nRepo Conventions:`);
-      // Inferring from general requirement format
-      console.log(`* package manager: pnpm`);
-      console.log(`* test framework: node:test`);
-      console.log(`* validation: pnpm typecheck, pnpm test`);
-    }
+    const validationResults = result.validationResults ?? [];
 
     console.log(`\nTool Calls:`);
     if (result.observations && result.observations.length > 0) {
@@ -170,44 +209,37 @@ export async function runCodeAction(options: CodeActionRunnerOptions): Promise<A
       
       // Override final Summary if validation failure prevents success claim
       if (!result.ok) {
-        finalSummary = `Failed:\nValidation failed. No success claimed.`;
-        console.log(`\n${finalSummary}`);
+        finalSummary = validationResults.some((validation) => !validation.ok || validation.exitCode !== 0)
+          ? "Validation failed. No success claimed."
+          : "Task did not complete. No success claimed.";
+        console.log(`\n${formatActionCompletion(false, finalSummary, validationResults)}`);
       } else if (failedTarget) {
-        finalSummary = `Failed: Could not create ${failedTarget}. ${failedReason}`;
-        console.log(`\n${finalSummary}`);
+        finalSummary = `Could not create ${failedTarget}. ${failedReason}`;
+        console.log(`\n${formatActionCompletion(false, finalSummary, [])}`);
       } else if (createdFileRelative) {
         if (intent?.contentGoal?.toLowerCase().includes("workspace") || input.toLowerCase().includes("workspace")) {
            finalSummary = `Created ${createdFileRelative} with a workspace overview.`;
         } else {
            finalSummary = `Created ${createdFileRelative}.`;
         }
-        
-        let prefix = "Done:\n";
-        if (result.observations && result.observations.some((obs: any) => obs.toolName === 'shell' && obs.input?.command?.includes("test"))) {
-          prefix += "Implemented <task> and validation passed.\n";
-        }
-        console.log(`\n${prefix}${finalSummary}`);
+        console.log(`\n${formatActionCompletion(true, finalSummary, validationResults)}`);
       } else if (createdDirRelative) {
         finalSummary = `Created directory ${createdDirRelative}.`;
-        let prefix = "Done:\n";
-        if (result.observations && result.observations.some((obs: any) => obs.toolName === 'shell' && obs.input?.command?.includes("test"))) {
-          prefix += "Implemented <task> and validation passed.\n";
-        }
-        console.log(`\n${prefix}${finalSummary}`);
+        console.log(`\n${formatActionCompletion(true, finalSummary, validationResults)}`);
       } else {
         // Fallback cleanup for any deterministic messages from the provider
         finalSummary = parseGeneratedSummary(finalSummary);
-        let prefix = "Done:\n";
-        if (result.observations && result.observations.some((obs: any) => obs.toolName === 'shell' && obs.input?.command?.includes("test"))) {
-          prefix += "Implemented <task> and validation passed.\n";
-        }
-        console.log(`\n${prefix}${finalSummary}`);
+        console.log(`\n${formatActionCompletion(true, finalSummary, validationResults)}`);
       }
 
       result.summary = finalSummary;
     } else {
       console.log("- None");
-      console.log(`\nDone:\nThe coding agent did not execute any tools. No files were changed.`);
+      const finalSummary = result.ok
+        ? "The coding agent did not execute any tools. No files were changed."
+        : "Task did not complete. No files were changed.";
+      console.log(`\n${formatActionCompletion(result.ok, finalSummary, validationResults)}`);
+      result.summary = finalSummary;
     }
 
     return result;

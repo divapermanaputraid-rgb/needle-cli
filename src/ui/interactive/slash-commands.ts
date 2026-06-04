@@ -1,12 +1,32 @@
 import { ShellState } from './shell-state.js';
 import { renderBrandHeader } from './render-brand.js';
 import * as readline from 'node:readline';
+import os from 'node:os';
+import path from 'node:path';
 import { runSettingsWizard } from './settings-wizard.js';
 import { saveNeedleConfig } from '../../config/loader.js';
 import { handleInteractiveChat } from './interactive-chat.js';
 import type { ChatSession } from './chat-session.js';
 import type { RuntimeController } from './runtime-controller.js';
 import { getSecretStatus, clearLocalSecrets, forgetLocalSecret, getEnvVarName } from './secrets.js';
+
+export function formatDisplayPath(cwd: string, home = os.homedir()): string {
+  if (!path.isAbsolute(cwd)) {
+    return cwd || '.';
+  }
+
+  const relativeToHome = path.relative(home, cwd);
+  const isOutsideHome = relativeToHome === '..' ||
+    relativeToHome.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativeToHome);
+
+  if (!isOutsideHome) {
+    return relativeToHome ? path.join('~', relativeToHome) : '~';
+  }
+
+  const basename = path.basename(cwd);
+  return basename ? `./${basename}` : '.';
+}
 
 export async function handleSlashCommand(input: string, state: ShellState, chatSession: ChatSession, rl?: readline.Interface, runtimeController?: RuntimeController): Promise<boolean> {
   if (!input.trim().startsWith('/')) {
@@ -84,12 +104,7 @@ ${bold}Available Commands:${reset}
       console.log(`  Provider:      ${state.provider || state.config?.defaultProvider || 'None'}`);
       console.log(`  Smart Model:   ${state.config?.models?.smart || 'None'}`);
       
-      let displayCwd = state.cwd;
-      const home = process.env.HOME || require('os').homedir();
-      if (displayCwd.startsWith(home)) {
-        displayCwd = displayCwd.replace(home, '~');
-      }
-      console.log(`  CWD:           ${displayCwd}\n`);
+      console.log(`  CWD:           ${formatDisplayPath(state.cwd, process.env.HOME || os.homedir())}\n`);
       return true;
 
     case '/pwd':

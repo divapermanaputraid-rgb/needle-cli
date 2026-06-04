@@ -7,6 +7,49 @@ import { runAgentLoop } from "../../src/core/agent-loop.js";
 import { ToolRegistry } from "../../src/tools/registry.js";
 import type { ChatMessage, ChatResponse } from "../../src/providers/types.js";
 
+async function createValidationFixture(scripts: Record<string, string>): Promise<string> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-validation-"));
+  await fs.writeFile(
+    path.join(tmpDir, "package.json"),
+    JSON.stringify({ name: "needle-validation-fixture", scripts }, null, 2),
+  );
+  return tmpDir;
+}
+
+function createWriteRegistry(): ToolRegistry {
+  const registry = new ToolRegistry();
+  registry.register({
+    name: "file.write",
+    description: "writes a fixture file",
+    riskLevel: "medium",
+    isReadOnly: false,
+    inputSchemaDescription: "{}",
+    execute: async (_input, context) => {
+      await fs.writeFile(path.join(context.cwd, "result.txt"), "ok\n");
+      return {
+        ok: true,
+        output: "written",
+        metadata: { path: "result.txt" },
+      };
+    },
+  });
+  return registry;
+}
+
+function createWriteThenFinalProvider(): (messages: ChatMessage[]) => Promise<ChatResponse> {
+  let callCount = 0;
+  return async () => {
+    callCount++;
+    return {
+      content: callCount === 1
+        ? JSON.stringify({ type: "tool_call", tool: "file.write", input: {} })
+        : JSON.stringify({ type: "final", summary: "Done" }),
+      model: "test",
+      provider: "test-provider",
+    };
+  };
+}
+
 test("agent loop stops on final response and logs session", async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "needle-test-"));
   const providerChat = async (messages: ChatMessage[]): Promise<ChatResponse> => {
@@ -83,6 +126,7 @@ test("agent loop executes safe read-only tool", async () => {
   assert.equal(result.toolCalls.length, 1);
   assert.equal(result.toolCalls[0].tool, "safe-read");
   assert.equal(result.toolCalls[0].ok, true);
+  assert.deepEqual(result.validationResults, []);
 });
 
 test("agent loop handles unknown tool", async () => {
@@ -312,4 +356,70 @@ test("dryRun builds context and skips provider execution", async () => {
   assert.equal(called, false, "Provider should not be called in dry run mode");
   assert.equal(result.iterations, 0);
   assert.match(result.summary, /Dry run completed/);
+  assert.deepEqual(result.validationResults, []);
+});
+
+test("agent loop records successful validation commands", async (t) => {
+  const cwd = await createValidationFixture({
+    typecheck: 'node -e "process.exit(0)"',
+    test: 'node -e "process.exit(0)"',
+  });
+  t.after(() => fs.rm(cwd, { recursive: true, force: true }));
+
+  const result = await runAgentLoop({
+    cwd,
+    task: "write a file",
+    providerChat: createWriteThenFinalProvider(),
+    toolRegistry: createWriteRegistry(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.validationResults, [
+    { command: "npm run typecheck", ok: true, exitCode: 0 },
+    { command: "npm run test", ok: true, exitCode: 0 },
+  ]);
+});
+
+test("agent loop records failed validation without claiming success", async (t) => {
+  const cwd = await createValidationFixture({
+    typecheck: 'node -e "process.exit(0)"',
+    test: 'node -e "process.exit(7)"',
+  });
+  t.after(() => fs.rm(cwd, { recursive: true, force: true }));
+
+  const result = await runAgentLoop({
+    cwd,
+    task: "write a file",
+    providerChat: createWriteThenFinalProvider(),
+    toolRegistry: createWriteRegistry(),
+    maxIterations: 3,
+  });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.validationResults, [
+    { command: "npm run typecheck", ok: true, exitCode: 0 },
+    { command: "npm run test", ok: false, exitCode: 7 },
+  ]);
+  assert.doesNotMatch(result.summary, /passed|success/i);
+});
+
+test("agent loop keeps only the latest validation attempt after retry", async (t) => {
+  const cwd = await createValidationFixture({
+    typecheck: 'node -e "process.exit(0)"',
+    test: `node -e "const fs=require('fs'); if (fs.existsSync('.validation-ready')) process.exit(0); fs.writeFileSync('.validation-ready','1'); process.exit(5)"`,
+  });
+  t.after(() => fs.rm(cwd, { recursive: true, force: true }));
+
+  const result = await runAgentLoop({
+    cwd,
+    task: "write a file",
+    providerChat: createWriteThenFinalProvider(),
+    toolRegistry: createWriteRegistry(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.validationResults, [
+    { command: "npm run typecheck", ok: true, exitCode: 0 },
+    { command: "npm run test", ok: true, exitCode: 0 },
+  ]);
 });
