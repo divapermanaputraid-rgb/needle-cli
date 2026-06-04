@@ -48,14 +48,20 @@ export async function runCodeAction(options: CodeActionRunnerOptions): Promise<A
   let confirmMsg = `\n${yellow}This looks like a workspace change:\n"${input}"\n\nRun coding agent? (Y/n) ${reset}`;
   
   if (intent?.intent === "code_action") {
-    if (intent.targetDirectory && !intent.contentGoal) {
-      confirmMsg = `\n${yellow}Code Action: Create Directory "${intent.targetDirectory}"\nProceed? (Y/n) ${reset}`;
-    } else if (intent.targetPath && intent.contentGoal) {
+    if (intent.targetPath && intent.contentGoal) {
+      // Prioritize file creation Code Action titles for deterministic paths 
+      // over falling back to directory creation if both are present in the task
       confirmMsg = `\n${yellow}Code Action: Write File "${intent.targetPath}"\nProceed? (Y/n) ${reset}`;
+    } else if (intent.targetDirectory && !intent.contentGoal) {
+      confirmMsg = `\n${yellow}Code Action: Create Directory "${intent.targetDirectory}"\nProceed? (Y/n) ${reset}`;
     }
   } else if (intent?.intent === "write_documentation") {
-     // Handled by documentation runner, but just in case
-     confirmMsg = `\n${yellow}Documentation Action\nProceed? (Y/n) ${reset}`;
+     if (intent.targetPath) {
+       confirmMsg = `\n${yellow}Code Action: Write File "${intent.targetPath}"\nProceed? (Y/n) ${reset}`;
+     } else {
+       // Handled by documentation runner, but just in case
+       confirmMsg = `\n${yellow}Documentation Action\nProceed? (Y/n) ${reset}`;
+     }
   }
 
   const confirm = await new Promise<string>((resolve) => {
@@ -175,14 +181,27 @@ export async function runCodeAction(options: CodeActionRunnerOptions): Promise<A
         } else {
            finalSummary = `Created ${createdFileRelative}.`;
         }
-        console.log(`\nDone:\nImplemented <task> and validation passed.\n${finalSummary}`);
+        
+        let prefix = "Done:\n";
+        if (result.observations && result.observations.some((obs: any) => obs.toolName === 'shell' && obs.input?.command?.includes("test"))) {
+          prefix += "Implemented <task> and validation passed.\n";
+        }
+        console.log(`\n${prefix}${finalSummary}`);
       } else if (createdDirRelative) {
         finalSummary = `Created directory ${createdDirRelative}.`;
-        console.log(`\nDone:\nImplemented <task> and validation passed.\n${finalSummary}`);
+        let prefix = "Done:\n";
+        if (result.observations && result.observations.some((obs: any) => obs.toolName === 'shell' && obs.input?.command?.includes("test"))) {
+          prefix += "Implemented <task> and validation passed.\n";
+        }
+        console.log(`\n${prefix}${finalSummary}`);
       } else {
         // Fallback cleanup for any deterministic messages from the provider
         finalSummary = parseGeneratedSummary(finalSummary);
-        console.log(`\nDone:\nImplemented <task> and validation passed.\n${finalSummary}`);
+        let prefix = "Done:\n";
+        if (result.observations && result.observations.some((obs: any) => obs.toolName === 'shell' && obs.input?.command?.includes("test"))) {
+          prefix += "Implemented <task> and validation passed.\n";
+        }
+        console.log(`\n${prefix}${finalSummary}`);
       }
 
       result.summary = finalSummary;

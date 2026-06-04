@@ -26,6 +26,11 @@ test("code-action-runner: parseGeneratedSummary translates messages correctly", 
     );
 
     assert.equal(
+        parseGeneratedSummary("docs/file.txt written"),
+        "Created docs/file.txt."
+    );
+
+    assert.equal(
         parseGeneratedSummary("file test-1/README.md written"),
         "Created test-1/README.md."
     );
