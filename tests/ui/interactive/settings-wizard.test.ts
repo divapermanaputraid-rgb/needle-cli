@@ -6,7 +6,7 @@ describe('Settings Wizard', () => {
     // This is tested by the wizard logic assigning values to config
     const config: any = { models: {} };
     const modelName = 'low';
-    const profiles = ['fast', 'smart', 'coder', 'planner', 'reviewer'];
+    const profiles = ['router', 'fast', 'smart', 'coder', 'planner', 'reviewer'];
     
     profiles.forEach(p => config.models[p] = modelName);
     
@@ -15,7 +15,7 @@ describe('Settings Wizard', () => {
   });
 
   it('set one profile validates allowed profile names', () => {
-    const allowed = ['fast', 'smart', 'coder', 'planner', 'reviewer'];
+    const allowed = ['router', 'fast', 'smart', 'coder', 'planner', 'reviewer'];
     assert.strictEqual(allowed.includes('fast'), true);
     assert.strictEqual(allowed.includes('invalid'), false);
   });

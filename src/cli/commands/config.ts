@@ -38,7 +38,7 @@ configCommand
         config.defaultProvider = value;
       } else if (key.startsWith('model.')) {
         const profile = key.split('.')[1] as ModelProfile;
-        const validProfiles: ModelProfile[] = ['fast', 'smart', 'coder', 'planner', 'reviewer'];
+        const validProfiles: ModelProfile[] = ['router', 'fast', 'smart', 'coder', 'planner', 'reviewer'];
         if (!validProfiles.includes(profile)) {
           console.error(`Error: Unknown model profile '${profile}'. Valid profiles are: ${validProfiles.join(', ')}`);
           process.exit(1);

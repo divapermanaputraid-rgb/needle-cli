@@ -185,7 +185,7 @@ ${bold}Available Commands:${reset}
       if (parts.length > 1) {
         const action = parts[1]; // 'all' or a profile name
         const modelName = parts[2];
-        const profiles = ['fast', 'smart', 'coder', 'planner', 'reviewer'] as const;
+        const profiles = ['router', 'fast', 'smart', 'coder', 'planner', 'reviewer'] as const;
 
         if (!modelName) {
            console.log(`\n${yellow}Missing model name. Usage: /model <profile|all> <model>${reset}\n`);
@@ -209,7 +209,7 @@ ${bold}Available Commands:${reset}
         }
       } else {
         console.log(`\nCurrent model profiles:`);
-        const profiles = ['fast', 'smart', 'coder', 'planner', 'reviewer'] as const;
+        const profiles = ['router', 'fast', 'smart', 'coder', 'planner', 'reviewer'] as const;
         for (const p of profiles) {
           console.log(`${p.padEnd(8)} -> ${state.config.models[p] || '<missing>'}`);
         }

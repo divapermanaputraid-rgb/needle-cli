@@ -145,7 +145,7 @@ export const doctorCommand = new Command("doctor")
     // 4. Models
     console.log("Models");
     if (config) {
-      const profiles = ["fast", "smart", "coder", "planner", "reviewer"] as const;
+      const profiles = ["router", "fast", "smart", "coder", "planner", "reviewer"] as const;
       for (const profile of profiles) {
         const val = config.models[profile];
         if (val) {

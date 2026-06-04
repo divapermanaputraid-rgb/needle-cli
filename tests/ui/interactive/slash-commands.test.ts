@@ -58,6 +58,21 @@ describe('Slash Commands', () => {
     assert.strictEqual(handled, true);
   });
 
+  it('handles slash commands and /code without natural-language classification', async () => {
+    const state: ShellState = { cwd: tmpCwd, history: [] };
+    const mockSession = {} as any;
+    let codeCalls = 0;
+    const runtimeController = {
+      handleCodeAction: async () => {
+        codeCalls += 1;
+      },
+    } as any;
+
+    assert.strictEqual(await handleSlashCommand('/whoami', state, mockSession, undefined, runtimeController), true);
+    assert.strictEqual(await handleSlashCommand('/code add a file', state, mockSession, {} as any, runtimeController), true);
+    assert.strictEqual(codeCalls, 1);
+  });
+
   it('handles review-like text routes to normal chat unless slash command is /review', async () => {
     const state: ShellState = { cwd: tmpCwd, history: [] };
     const mockSession = {} as any;

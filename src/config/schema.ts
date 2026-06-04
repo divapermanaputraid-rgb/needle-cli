@@ -9,12 +9,14 @@ export const ProviderConfigSchema = z.object({
 export const NeedleConfigSchema = z.object({
   defaultProvider: z.string().default('9router'),
   models: z.object({
+    router: z.string().default(''),
     fast: z.string().default(''),
     smart: z.string().default(''),
     coder: z.string().default(''),
     planner: z.string().default(''),
     reviewer: z.string().default(''),
   }).default({
+    router: '',
     fast: '',
     smart: '',
     coder: '',

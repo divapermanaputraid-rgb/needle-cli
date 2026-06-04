@@ -174,7 +174,7 @@ export async function runSettingsWizard(rl: readline.Interface, state: ShellStat
     return;
   }
 
-  const profiles = ['fast', 'smart', 'coder', 'planner', 'reviewer'] as const;
+  const profiles = ['router', 'fast', 'smart', 'coder', 'planner', 'reviewer'] as const;
 
   if (applyChoice.trim() === '1') {
     for (const p of profiles) {

@@ -6,6 +6,7 @@ export type ProviderId =
   | "deepseek";
 
 export type ModelProfile =
+  | "router"
   | "fast"
   | "smart"
   | "coder"
