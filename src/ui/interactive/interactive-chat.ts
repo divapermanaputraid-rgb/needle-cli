@@ -5,18 +5,12 @@ import { buildProjectContext, formatProjectContextForPrompt } from '../../core/c
 import { resolveModelProfile, resolveProviderConfig } from '../../config/loader.js';
 import type { ChatMessage, ModelProfile } from '../../providers/types';
 import type { NeedleConfig } from '../../config/schema.js';
-import { TaskNormalizer } from './task-normalizer.js';
-import { ReferenceResolver } from './reference-resolver.js';
 import { runAgentLoop } from '../../core/agent-loop.js';
 import { runPlanMode } from '../../planner/plan-mode.js';
 import * as readline from 'node:readline';
 import { runCodeAction } from './code-action-runner.js';
 import { runDocumentation } from './documentation-runner.js';
 import { SessionState } from './session-state.js';
-
-const runtimeSessionState = new SessionState();
-const normalizer = new TaskNormalizer();
-const resolver = new ReferenceResolver(runtimeSessionState.toolObservations);
 
 const SYSTEM_PROMPT = `You are Needle, an AI coding CLI assistant.
 Help with software engineering, project analysis, planning, debugging, and safe coding workflows.
@@ -62,83 +56,7 @@ export async function handleInteractiveChat(
     return;
   }
 
-  const intentData = normalizer.normalize(input);
-  
-  if (intentData.intent === "followup_lookup") {
-     const lastFile = resolver.resolveTargetFile(input) || runtimeSessionState.toolObservations.getLastCreatedFile();
-     const lastDir = resolver.resolveTargetDirectory(input) || runtimeSessionState.toolObservations.getLastCreatedDirectory();
-     
-     // Continue to normal chat but we will make sure observation text handles it well
-  } else if (intentData.intent === "code_action") {
-     const targetDir = resolver.resolveTargetDirectory(input, intentData.targetDirectory);
-     const targetFile = resolver.resolveTargetFile(input, intentData.targetPath);
-     if (targetDir) intentData.targetDirectory = targetDir;
-     if (targetFile) intentData.targetPath = targetFile;
-  } else if (intentData.intent === "write_documentation") {
-     const targetDir = resolver.resolveTargetDirectory(input, intentData.targetDirectory);
-     if (targetDir) intentData.targetDirectory = targetDir;
-  }
-
-  runtimeSessionState.updateLastTask(input, intentData.intent);
-
   const providerId = (state.provider || config.defaultProvider) as string;
-
-  if (intentData.intent === 'code_action') {
-    if (rl) {
-      const result = await runCodeAction({
-        input,
-        cwd: state.cwd,
-        history: chatSession.getHistory(),
-        config,
-        router,
-        targetProfile,
-        providerId,
-        rl,
-        sessionState: runtimeSessionState,
-        intent: intentData
-      });
-      if (result) {
-        chatSession.addMessage({ role: 'user', content: input });
-        chatSession.addMessage({ role: 'assistant', content: result.summary });
-      }
-      return;
-    }
-  } else if (intentData.intent === 'write_documentation') {
-    if (rl) {
-      const result = await runDocumentation({
-        input,
-        cwd: state.cwd,
-        history: chatSession.getHistory(),
-        config,
-        router,
-        targetProfile,
-        providerId,
-        rl,
-        sessionState: runtimeSessionState,
-        intent: intentData
-      });
-      if (result) {
-        chatSession.addMessage({ role: 'user', content: input });
-        chatSession.addMessage({ role: 'assistant', content: result.summary });
-      }
-      return;
-    }
-  }
- else if (intentData.intent === 'plan') {
-    console.log('\nRunning plan workflow...');
-    try {
-      const planProfile: ModelProfile = config.models.planner ? 'planner' : targetProfile!;
-      const result = await runPlanMode({
-        cwd: state.cwd,
-        task: input,
-        profile: planProfile
-      });
-      console.log(`\n${result.plan}`);
-    } catch (err: any) {
-      console.log(`\n${red}Plan Workflow Error: ${err.message}${reset}`);
-    }
-    return;
-  }
 
   // Check API key
   try {
@@ -163,24 +81,8 @@ export async function handleInteractiveChat(
     // ignore context errors
   }
 
-  // Inject session observation context
-  let observationStr = '';
-  const recentFiles = runtimeSessionState.toolObservations.getCreatedFiles();
-  const recentDirs = runtimeSessionState.toolObservations.getCreatedDirectories();
-  const summary = runtimeSessionState.toolObservations.getLastActionSummary();
-  
-  if (recentFiles.length > 0 || recentDirs.length > 0 || summary !== "No recent actions.") {
-    observationStr = `\n\nRecent Tool Observations from this Session (USE THIS to answer questions like "mana filenya?"):
-- Created Files: ${recentFiles.join(', ') || 'None'}
-- Created Directories: ${recentDirs.join(', ') || 'None'}
-- Summary: ${summary}
-`;
-  } else {
-    observationStr = `\n\nRecent Tool Observations from this Session: None. No files or directories have been created yet.`;
-  }
-
   const messages: ChatMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT + contextStr + observationStr },
+    { role: 'system', content: SYSTEM_PROMPT + contextStr },
     ...chatSession.getHistory(),
     { role: 'user', content: input }
   ];
