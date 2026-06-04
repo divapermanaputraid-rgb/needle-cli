@@ -83,7 +83,13 @@ ${bold}Available Commands:${reset}
       console.log(`\n${bold}Active Identity:${reset}`);
       console.log(`  Provider:      ${state.provider || state.config?.defaultProvider || 'None'}`);
       console.log(`  Smart Model:   ${state.config?.models?.smart || 'None'}`);
-      console.log(`  CWD:           ${state.cwd}\n`);
+      
+      let displayCwd = state.cwd;
+      const home = process.env.HOME || require('os').homedir();
+      if (displayCwd.startsWith(home)) {
+        displayCwd = displayCwd.replace(home, '~');
+      }
+      console.log(`  CWD:           ${displayCwd}\n`);
       return true;
 
     case '/pwd':
