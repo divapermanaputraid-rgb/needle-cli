@@ -79,6 +79,13 @@ ${bold}Available Commands:${reset}
       renderBrandHeader(state);
       return true;
 
+    case '/whoami':
+      console.log(`\n${bold}Active Identity:${reset}`);
+      console.log(`  Provider:      ${state.provider || state.config?.defaultProvider || 'None'}`);
+      console.log(`  Smart Model:   ${state.config?.models?.smart || 'None'}`);
+      console.log(`  CWD:           ${state.cwd}\n`);
+      return true;
+
     case '/pwd':
       console.log(`\n${cyan}Current Working Directory:${reset}`);
       console.log(`${state.cwd}\n`);
